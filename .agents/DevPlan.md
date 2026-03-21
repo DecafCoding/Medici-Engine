@@ -16,9 +16,9 @@
 
 ---
 
-## Phase Overview
+## Feature Overview
 
-| Phase | Name | Key Deliverable |
+| Feature | Name | Key Deliverable |
 |---|---|---|
 | 1 | Core Conversation Engine | Two agents converse on a shared object; transcripts logged |
 | 2 | Persona Library | Curated set of fully specified personas; selection logic built |
@@ -30,9 +30,9 @@
 
 ---
 
-## Phase Details
+## Feature Details
 
-### Phase 1 — Core Conversation Engine
+### Feature 1 — Core Conversation Engine
 
 Build the fundamental loop: two agents with assigned personas, given a shared object, conducting a fixed-turn conversation. Full transcripts are logged. No synthesis yet — just the raw collision.
 
@@ -42,7 +42,7 @@ The shared object mechanism needs to be flexible enough to accept a problem stat
 
 ---
 
-### Phase 2 — Persona Library
+### Feature 2 — Persona Library
 
 Build out the curated persona set. Each persona must be fully specified across four dimensions: worldview, vocabulary style, core obsessions, and characteristic way of seeing. Generic job titles are not sufficient — a "physicist" is not a persona; a "quantum physicist who thinks everything is fundamentally about information loss" is closer.
 
@@ -52,7 +52,7 @@ Build the selection logic that picks two personas per run and tracks pairings to
 
 ---
 
-### Phase 3 — Synthesizer Agent
+### Feature 3 — Synthesizer Agent
 
 Add the third agent that reads the full conversation transcript and extracts structured output. The synthesizer's job is not to summarize — it is to identify transferable principles, unexpected reframings, and novel compound concepts that emerged from the collision.
 
@@ -62,7 +62,7 @@ The output format is domain-specific and defined as configuration. For the first
 
 ---
 
-### Phase 4 — Scoring Layer
+### Feature 4 — Scoring Layer
 
 Add a higher-capability model that scores the synthesizer's output across domain-specific axes, with reasoning for each score — not just a number. For sci-fi: uniqueness, scientific plausibility, compelling factor.
 
@@ -72,19 +72,19 @@ Scoring criteria are domain-specific configuration, not hardcoded logic. The sco
 
 ---
 
-### Phase 5 — Review UI + Batch Setup
+### Feature 5 — Review UI + Batch Setup
 
 Build a web interface that serves two functions: configuring/launching conversation runs and reviewing the results.
 
 The batch setup side lets the user select persona pairings (or randomize), choose shared objects from the pool, set turn counts, and launch a batch of conversations. The review side presents scored concepts with per-axis reasoning and provides drill-down access to full transcripts.
 
-The UI does not need to be elaborate. The goal is fast batch configuration and fast informed review — not a dashboard or analytics platform. Phases 1-4 use CLI to run conversations; this phase replaces that workflow with the UI.
+The UI does not need to be elaborate. The goal is fast batch configuration and fast informed review — not a dashboard or analytics platform. Features 1-4 use CLI to run conversations; this feature replaces that workflow with the UI.
 
 **Done when:** A user can configure and launch a batch of conversations from the browser, then browse the scored results, drill into transcripts, and mark concepts as kept or discarded.
 
 ---
 
-### Phase 6 — Domain Expansion
+### Feature 6 — Domain Expansion
 
 Adapt the synthesizer and scoring layer for a second application domain. This validates that the architecture is genuinely domain-agnostic — swapping the domain is a configuration change, not a rebuild.
 
@@ -94,7 +94,7 @@ The choice of second domain should be driven by what would be most useful at the
 
 ---
 
-### Phase 7 — Feedback Loop
+### Feature 7 — Feedback Loop
 
 Build a lightweight mechanism for human review scores to inform future runs. At minimum: which persona pairings produced the highest-rated output, and which shared objects seeded the most generative conversations.
 
@@ -120,9 +120,9 @@ Start with a hand-curated pool of 20-30 shared objects. Three reasons:
 
 - Shared object quality directly controls conversation quality. Bad seeds produce boring collisions regardless of persona pairing.
 - You need to build intuition for what makes a good seed before you can prompt-generate them.
-- 20-30 curated seeds is enough to get through Phases 1-3 without repetition.
+- 20-30 curated seeds is enough to get through Features 1-3 without repetition.
 
-LLM-generated seeds can be added in Phase 6+, vetted against patterns learned from the curated set.
+LLM-generated seeds can be added in Feature 6+, vetted against patterns learned from the curated set.
 
 ### Persona Library Size — 12 for MVP, 20-25 ideal
 
@@ -155,9 +155,9 @@ The conversation agents run on locally hosted models, served via vLLM with its O
 
 No vector search needed — the system stores structured documents (transcripts, synthesizer output, scores, review decisions), not embeddings. SQLite keeps the stack simple with zero infrastructure dependencies. A single database file, no Docker required just to persist data.
 
-### Run Trigger — CLI for Phases 1-4, UI batch setup in Phase 5
+### Run Trigger — CLI for Features 1-4, UI batch setup in Feature 5
 
-Phases 1-4 use a CLI command to run conversations. Phase 5 adds a batch configuration interface to the UI where the user sets up runs: selects persona pairings, shared objects, turn counts, and number of parallel conversations. The UI becomes both the run configuration surface and the review surface.
+Features 1-4 use a CLI command to run conversations. Feature 5 adds a batch configuration interface to the UI where the user sets up runs: selects persona pairings, shared objects, turn counts, and number of parallel conversations. The UI becomes both the run configuration surface and the review surface.
 
 ### Review UI Scope — Batch setup + three review views + one action
 

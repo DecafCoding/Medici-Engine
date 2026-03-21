@@ -251,56 +251,9 @@ So that <benefit/value>
 
 ## IMPLEMENTATION PLAN
 
-### Phase 1: Foundation
+Break the feature into discrete **Tasks**. Each Task is a logical unit of work that can be implemented and validated independently. Tasks are ordered by dependency — execute top to bottom.
 
-<Describe foundational work needed before main implementation>
-
-**Tasks:**
-
-- Set up base structures (schemas, types, interfaces)
-- Configure necessary dependencies
-- Create foundational utilities or helpers
-
-### Phase 2: Core Implementation
-
-<Describe the main implementation work>
-
-**Tasks:**
-
-- Implement core business logic
-- Create service layer components
-- Add API endpoints or interfaces
-- Implement data models
-
-### Phase 3: Integration
-
-<Describe how feature integrates with existing functionality>
-
-**Tasks:**
-
-- Connect to existing routers/handlers
-- Register new components
-- Update configuration files
-- Add middleware or interceptors if needed
-
-### Phase 4: Testing & Validation
-
-<Describe testing approach>
-
-**Tasks:**
-
-- Implement unit tests for each component
-- Create integration tests for feature workflow
-- Add edge case tests
-- Validate against acceptance criteria
-
----
-
-## STEP-BY-STEP TASKS
-
-IMPORTANT: Execute every task in order, top to bottom. Each task is atomic and independently testable.
-
-### Task Format Guidelines
+### Task Format
 
 Use information-dense keywords for clarity:
 
@@ -311,7 +264,9 @@ Use information-dense keywords for clarity:
 - **REFACTOR**: Restructure without changing behavior
 - **MIRROR**: Copy pattern from elsewhere in codebase
 
-### {ACTION} {target_file}
+### Task 1: <Short descriptive name>
+
+<Describe what this task accomplishes and why it's needed>
 
 - **IMPLEMENT**: {Specific implementation detail}
 - **PATTERN**: {Reference to existing pattern - file:line}
@@ -319,7 +274,13 @@ Use information-dense keywords for clarity:
 - **GOTCHA**: {Known issues or constraints to avoid}
 - **VALIDATE**: `{executable validation command}`
 
+### Task 2: <Short descriptive name>
+
 <Continue with all tasks in dependency order...>
+
+### Task N: Testing & Validation
+
+<Final task(s) should cover testing — unit tests, integration tests, edge cases, and validation against acceptance criteria>
 
 ---
 
@@ -412,9 +373,74 @@ uv run ruff format --check .
 
 ---
 
+## EXECUTION STRATEGY
+
+**Recommended approach**: [Whole Feature / Task by Task / Milestones]
+
+**Rationale**: <Why this approach fits this feature — reference task count, coupling, complexity, risk>
+
+<!-- Include this section only if recommending Milestones -->
+### Milestones
+
+**Milestone 1: <Name>** (Tasks 1–3)
+- <One-line summary of what this milestone achieves>
+- **Validation checkpoint**: <What should be true before moving to the next milestone>
+
+**Milestone 2: <Name>** (Tasks 4–6)
+- <One-line summary>
+- **Validation checkpoint**: <What should be true>
+
+<Continue for all milestones...>
+
+---
+
 ## NOTES
 
 <Additional context, design decisions, trade-offs>
+```
+
+### Phase 6: Execution Strategy Recommendation
+
+After generating all Tasks, review them holistically and recommend how the feature should be executed. Consider task dependencies, complexity, risk, and feedback loops.
+
+**Evaluate three execution strategies:**
+
+1. **Whole Feature** — Execute all tasks in a single pass. Recommend when:
+   - Low complexity, few tasks (roughly 1–4)
+   - Tasks are tightly coupled and hard to validate in isolation
+   - Minimal risk of cascading failures
+
+2. **Task by Task** — Execute and validate each task individually before proceeding. Recommend when:
+   - Tasks are independent and each is independently testable
+   - High complexity or uncertainty in individual tasks
+   - Feature touches many unrelated parts of the codebase
+
+3. **Milestones** — Group tasks into Milestones (logical checkpoints), execute one milestone at a time. Recommend when:
+   - Feature has natural phases (e.g., data layer → service layer → API layer → tests)
+   - Some tasks are tightly coupled within a group but loosely coupled across groups
+   - Mid-to-high complexity where full single-pass is risky but task-by-task is unnecessarily granular
+
+**Output the recommendation in this format:**
+
+```markdown
+## EXECUTION STRATEGY
+
+**Recommended approach**: [Whole Feature / Task by Task / Milestones]
+
+**Rationale**: <Why this approach fits this feature — reference task count, coupling, complexity, risk>
+
+<!-- Include this section only if recommending Milestones -->
+### Milestones
+
+**Milestone 1: <Name>** (Tasks 1–3)
+- <One-line summary of what this milestone achieves>
+- **Validation checkpoint**: <What should be true before moving to the next milestone>
+
+**Milestone 2: <Name>** (Tasks 4–6)
+- <One-line summary>
+- **Validation checkpoint**: <What should be true>
+
+<Continue for all milestones...>
 ```
 
 ## Output Format
@@ -476,3 +502,4 @@ After creating the Plan, provide:
 - Complexity assessment
 - Key implementation risks or considerations
 - Estimated confidence score for one-pass success
+- Execution strategy recommendation (Whole Feature / Task by Task / Milestones) with brief rationale
