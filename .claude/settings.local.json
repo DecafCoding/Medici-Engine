@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(pip index:*)",
+      "Bash(pip show:*)",
+      "Bash(uv python:*)",
+      "WebSearch",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(docker compose:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
