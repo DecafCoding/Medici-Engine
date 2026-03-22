@@ -41,6 +41,20 @@ CREATE TABLE IF NOT EXISTS pairing_history (
 
 CREATE INDEX IF NOT EXISTS idx_pairing_history_personas
     ON pairing_history(persona_a_name, persona_b_name);
+
+CREATE TABLE IF NOT EXISTS concepts (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    premise TEXT NOT NULL,
+    originality TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (run_id) REFERENCES runs(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_concepts_run_id ON concepts(run_id);
+CREATE INDEX IF NOT EXISTS idx_concepts_status ON concepts(status);
 """
 
 
