@@ -124,7 +124,7 @@ class SharedObject(BaseModel):
     )
 ```
 
-- **PATTERN**: Pure data models. No `openai` or `anthropic` imports allowed anywhere in `src/personas/`.
+- **PATTERN**: Pure data models. No `openai` imports allowed anywhere in `src/personas/`.
 - **VALIDATE**: `uv run python -c "from src.personas.models import Persona, SharedObject; print('Persona models loaded')"`
 
 ---
@@ -452,5 +452,5 @@ uv run ruff format --check src/personas/
 - [ ] `get_persona_pair(recent_pairings=...)` avoids recently used pairings
 - [ ] `get_persona_pair()` falls back gracefully when all pairings are recent
 - [ ] `to_system_prompt()` generates a prompt containing all four dimensions
-- [ ] No `openai` or `anthropic` imports in `src/personas/`
+- [ ] No `openai` imports in `src/personas/`
 - [ ] Ruff passes on `src/personas/`

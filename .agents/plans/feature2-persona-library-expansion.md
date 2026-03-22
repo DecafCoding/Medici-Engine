@@ -183,8 +183,8 @@ The existing `test_personas.py` tests are designed to scale with the library:
 
 ### Boundary Tests (existing, no changes needed)
 
-- `test_personas_has_no_llm_imports` — ensures no openai/anthropic imports sneak in
-- `test_engine_has_no_anthropic_imports` — unaffected but run for regression
+- `test_personas_has_no_llm_imports` — ensures no openai imports sneak in
+- `test_engine_does_not_use_remote_openai_api` — unaffected but run for regression
 - `test_db_has_no_llm_imports` — unaffected but run for regression
 
 ### Edge Cases

@@ -37,7 +37,7 @@ A synthesizer agent extracts structured output from the conversation, a scoring 
 - **FastAPI** — API and review UI
 - **Pydantic AI** — structured agent output
 - **vLLM** — local model inference (OpenAI-compatible API)
-- **Anthropic API** — synthesis (Sonnet) and scoring (Opus)
+- **OpenAI API** — synthesis (GPT-4o) and scoring (o3)
 - **SQLite** (aiosqlite) — zero-infrastructure persistence
 - **Ruff** — linting and formatting
 - **uv** — package management
@@ -71,7 +71,7 @@ uv sync
 
 # Copy environment config
 cp .env.example .env
-# Edit .env with your Anthropic API key and vLLM settings
+# Edit .env with your OpenAI API key and vLLM settings
 
 # Run tests
 uv run pytest
@@ -88,9 +88,9 @@ Key environment variables (see `.env.example` for the full list):
 |---|---|---|
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | Local vLLM server endpoint |
 | `CONVERSATION_MODEL` | `MythoMax-L2-13B` | Model served by vLLM |
-| `ANTHROPIC_API_KEY` | — | API key for synthesis and scoring |
-| `SYNTHESIS_MODEL` | `claude-sonnet-4-6` | Model for concept extraction |
-| `SCORING_MODEL` | `claude-opus-4-6` | Model for concept evaluation |
+| `OPENAI_API_KEY` | — | API key for synthesis and scoring |
+| `SYNTHESIS_MODEL` | `gpt-4o` | Model for concept extraction |
+| `SCORING_MODEL` | `o3` | Model for concept evaluation |
 | `DATABASE_PATH` | `data/yield_engine.db` | SQLite database path |
 
 ## License

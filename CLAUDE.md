@@ -14,7 +14,7 @@ Be honest in all reviews of code, comments, plans, and suggestions. If something
 
 The Medici Engine is a multi-agent creative collision system. It pairs AI agents embodying radically different personas, gives them a shared object to react to, and mines the productive misunderstandings for novel ideas. A synthesizer agent extracts structured output from the conversation, a scoring model rates it with reasoning, and a human makes the final keep/discard call.
 
-**Tech stack summary:** Python 3.12, uv (package manager), FastAPI, Pydantic AI, SQLite (aiosqlite), vLLM (local inference), Anthropic API (synthesis + scoring), Ruff, Pytest.
+**Tech stack summary:** Python 3.12, uv (package manager), FastAPI, Pydantic AI, SQLite (aiosqlite), vLLM (local inference), OpenAI API (synthesis + scoring), Ruff, Pytest.
 
 **Infrastructure:** 4x NVIDIA 5060Ti GPUs for local conversation model inference via vLLM.
 
@@ -275,8 +275,8 @@ Configuration      (src/config.py)
 ```
 
 Cross-cutting rules:
-- `src/engine/` communicates with the local vLLM server only — no Anthropic API calls.
-- `src/synthesis/` and `src/scoring/` communicate with the Anthropic API only — no vLLM calls.
+- `src/engine/` communicates with the local vLLM server only — must not use the remote OpenAI API directly.
+- `src/synthesis/` and `src/scoring/` communicate with the OpenAI API only — no vLLM calls.
 - `src/personas/` is pure data and selection logic — no LLM calls of any kind.
 - `src/db/` is the only module that touches SQLite. No raw SQL anywhere else.
 
@@ -293,23 +293,22 @@ All database queries go through `src/db/queries.py`. No raw SQL in engine, synth
 - Use **Pytest** with **pytest-asyncio** for all tests.
 - Test files mirror the source structure: `tests/test_engine.py`, `tests/test_synthesis.py`, `tests/test_api.py`.
 - Use fixtures in `tests/conftest.py` for shared setup (database connections, test clients, mock LLM responses).
-- Mock LLM calls (both vLLM and Anthropic API) — never make real inference calls in tests.
+- Mock LLM calls (both vLLM and OpenAI API) — never make real inference calls in tests.
 - API tests should use `httpx.AsyncClient` with the FastAPI test client.
 
 ### Boundary Verification Tests
 
-Include tests that verify architectural boundaries by inspecting imports:
+Include tests that verify architectural boundaries. Since both the engine and synthesis/scoring layers use the `openai` SDK (engine for vLLM, synthesis/scoring for the remote OpenAI API), boundary checks verify usage patterns rather than imports:
 
 ```python
-def test_engine_has_no_anthropic_imports():
-    """Verify the engine module does not import the Anthropic SDK."""
-    import ast
-    # Parse engine source files and assert no anthropic imports
+def test_engine_does_not_use_remote_openai_api():
+    """Verify the engine module only talks to vLLM, not the remote OpenAI API."""
+    # Check engine source files don't reference openai_api_key
 
 def test_personas_has_no_llm_imports():
     """Verify the persona module makes no LLM calls."""
     import ast
-    # Parse persona source files and assert no openai or anthropic imports
+    # Parse persona source files and assert no openai imports
 ```
 
 ### Test Naming
@@ -341,9 +340,9 @@ All configuration flows through environment variables loaded via `python-dotenv`
 Key configuration values:
 - `VLLM_BASE_URL` — local vLLM server endpoint (default: `http://localhost:8000/v1`)
 - `CONVERSATION_MODEL` — model name served by vLLM (default: `MythoMax-L2-13B`)
-- `ANTHROPIC_API_KEY` — API key for synthesis and scoring
-- `SYNTHESIS_MODEL` — Anthropic model for synthesis (default: `claude-sonnet-4-6`)
-- `SCORING_MODEL` — Anthropic model for scoring (default: `claude-opus-4-6`)
+- `OPENAI_API_KEY` — API key for synthesis and scoring
+- `SYNTHESIS_MODEL` — OpenAI model for synthesis (default: `gpt-4o`)
+- `SCORING_MODEL` — OpenAI model for scoring (default: `o3`)
 - `DATABASE_PATH` — SQLite database file path (default: `data/yield_engine.db`)
 
 ### Package Management
@@ -408,16 +407,16 @@ async def get_concepts(
 
 ### Model-Agnostic Provider Pattern
 
-The engine layer uses the OpenAI-compatible client pointed at the local vLLM server. The synthesis and scoring layers use the Anthropic client. Both are configured via `src/config.py`. Swapping models is an env var change, not a code change.
+Both the engine and synthesis/scoring layers use the OpenAI SDK — the engine points it at the local vLLM server, while synthesis and scoring point it at the remote OpenAI API. Both are configured via `src/config.py`. Swapping models is an env var change, not a code change.
 
 ```python
 from src.config import settings
 
-# Engine layer — local inference
+# Engine layer — local inference via vLLM
 client = AsyncOpenAI(base_url=settings.vllm_base_url, api_key="unused")
 
-# Synthesis layer — Anthropic API
-client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+# Synthesis/scoring layer — remote OpenAI API
+client = AsyncOpenAI(api_key=settings.openai_api_key)
 ```
 
 ### Structured Output
