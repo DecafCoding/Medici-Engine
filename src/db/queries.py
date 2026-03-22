@@ -65,6 +65,27 @@ class PairingRecord(BaseModel):
     created_at: str
 
 
+class Concept(BaseModel):
+    """A structured concept extracted by the synthesizer from a conversation."""
+
+    id: UUID
+    run_id: UUID
+    title: str
+    premise: str
+    originality: str
+    status: str = Field(default="pending", description="pending | kept | discarded")
+    created_at: str
+
+
+class ConceptCreate(BaseModel):
+    """Input model for creating a new concept."""
+
+    run_id: UUID
+    title: str
+    premise: str
+    originality: str
+
+
 # ── Helpers ───────────────────────────────────────────
 
 
@@ -86,6 +107,19 @@ def _row_to_run(row: aiosqlite.Row) -> Run:
         error_message=row["error_message"],
         created_at=row["created_at"],
         completed_at=row["completed_at"],
+    )
+
+
+def _row_to_concept(row: aiosqlite.Row) -> Concept:
+    """Map a database row to a Concept model."""
+    return Concept(
+        id=UUID(row["id"]),
+        run_id=UUID(row["run_id"]),
+        title=row["title"],
+        premise=row["premise"],
+        originality=row["originality"],
+        status=row["status"],
+        created_at=row["created_at"],
     )
 
 
@@ -227,3 +261,76 @@ async def get_recent_pairings(
     )
     rows = await cursor.fetchall()
     return [(row["persona_a_name"], row["persona_b_name"]) for row in rows]
+
+
+# ── Concept Queries ──────────────────────────────────
+
+
+async def create_concept(db: aiosqlite.Connection, concept: ConceptCreate) -> Concept:
+    """Insert a new concept record and return the hydrated model."""
+    concept_id = str(uuid4())
+    await db.execute(
+        "INSERT INTO concepts (id, run_id, title, premise, originality) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (
+            concept_id,
+            str(concept.run_id),
+            concept.title,
+            concept.premise,
+            concept.originality,
+        ),
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT * FROM concepts WHERE id = ?", (concept_id,))
+    row = await cursor.fetchone()
+    if row is None:
+        raise RuntimeError(f"Failed to retrieve concept after insert: {concept_id}")
+    return _row_to_concept(row)
+
+
+async def get_concepts(
+    db: aiosqlite.Connection,
+    status: str | None = None,
+    limit: int = 20,
+) -> list[Concept]:
+    """Fetch concepts, optionally filtered by review status."""
+    if status:
+        cursor = await db.execute(
+            "SELECT * FROM concepts WHERE status = ? ORDER BY created_at DESC LIMIT ?",
+            (status, limit),
+        )
+    else:
+        cursor = await db.execute(
+            "SELECT * FROM concepts ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    rows = await cursor.fetchall()
+    return [_row_to_concept(row) for row in rows]
+
+
+async def get_concept_by_run_id(
+    db: aiosqlite.Connection,
+    run_id: UUID,
+) -> Concept | None:
+    """Fetch the concept extracted from a specific run."""
+    cursor = await db.execute("SELECT * FROM concepts WHERE run_id = ?", (str(run_id),))
+    row = await cursor.fetchone()
+    return _row_to_concept(row) if row else None
+
+
+async def update_concept_status(
+    db: aiosqlite.Connection,
+    concept_id: UUID,
+    status: str,
+) -> Concept:
+    """Update a concept's review status (kept or discarded)."""
+    await db.execute(
+        "UPDATE concepts SET status = ? WHERE id = ?",
+        (status, str(concept_id)),
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT * FROM concepts WHERE id = ?", (str(concept_id),))
+    row = await cursor.fetchone()
+    if row is None:
+        raise RuntimeError(f"Concept not found after update: {concept_id}")
+    return _row_to_concept(row)
