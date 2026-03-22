@@ -158,15 +158,15 @@ VLLM_BASE_URL=http://localhost:8000/v1
 # Model name served by vLLM (must match --served-model-name)
 CONVERSATION_MODEL=MythoMax-L2-13B
 
-# ── Anthropic API (not used in Feature 1) ──────────────
+# ── OpenAI API (not used in Feature 1) ─────────────────
 # API key for synthesis and scoring (Features 3-4)
-ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
 
 # Model for synthesis (Feature 3)
-SYNTHESIS_MODEL=claude-sonnet-4-6
+SYNTHESIS_MODEL=gpt-4o
 
 # Model for scoring (Feature 4)
-SCORING_MODEL=claude-opus-4-6
+SCORING_MODEL=o3
 
 # ── Database ──────────────────────────────────────────
 # Path to SQLite database file
@@ -245,18 +245,18 @@ class Settings(BaseSettings):
         description="Model name served by vLLM",
     )
 
-    # Anthropic API (not used in Feature 1)
-    anthropic_api_key: str = Field(
+    # OpenAI API (not used in Feature 1)
+    openai_api_key: str = Field(
         default="",
-        description="API key for Anthropic (synthesis and scoring)",
+        description="API key for OpenAI (synthesis and scoring)",
     )
     synthesis_model: str = Field(
-        default="claude-sonnet-4-6",
-        description="Anthropic model for synthesis",
+        default="gpt-4o",
+        description="OpenAI model for synthesis",
     )
     scoring_model: str = Field(
-        default="claude-opus-4-6",
-        description="Anthropic model for scoring",
+        default="o3",
+        description="OpenAI model for scoring",
     )
 
     # Database

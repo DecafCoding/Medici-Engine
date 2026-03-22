@@ -37,18 +37,18 @@ class Settings(BaseSettings):
         description="Model name served by vLLM",
     )
 
-    # Anthropic API (not used in Feature 1)
-    anthropic_api_key: str = Field(
+    # OpenAI API (not used in Feature 1)
+    openai_api_key: str = Field(
         default="",
-        description="API key for Anthropic (synthesis and scoring)",
+        description="API key for OpenAI (synthesis and scoring)",
     )
     synthesis_model: str = Field(
-        default="claude-sonnet-4-6",
-        description="Anthropic model for synthesis",
+        default="gpt-4o",
+        description="OpenAI model for synthesis",
     )
     scoring_model: str = Field(
-        default="claude-opus-4-6",
-        description="Anthropic model for scoring",
+        default="o3",
+        description="OpenAI model for scoring",
     )
 
     # Database

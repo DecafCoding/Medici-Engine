@@ -128,13 +128,13 @@ LLM-generated seeds can be added in Feature 6+, vetted against patterns learned 
 
 With 12 personas there are 66 unique pairings — more than enough to validate the system and identify which pairings are generative. The constraint is depth, not quantity. Each persona must be fully specified across all four dimensions (worldview, vocabulary style, core obsessions, characteristic way of seeing). 12 deep personas beat 30 shallow ones.
 
-### Synthesizer Model — Claude Sonnet (via API)
+### Synthesizer Model — OpenAI GPT-4o (via API)
 
-Sonnet is capable enough for structured extraction from transcripts. If synthesis quality turns out to be the bottleneck, upgrading to Opus is a config change — better to start lean and escalate than overspend from day one.
+GPT-4o is capable enough for structured extraction from transcripts. If synthesis quality turns out to be the bottleneck, upgrading to o3 is a config change — better to start lean and escalate than overspend from day one.
 
-### Scoring Model — Claude Opus (via API)
+### Scoring Model — OpenAI o3 (via API)
 
-Scoring runs once per conversation, not per turn, so cost scales linearly with run count. Opus is the strongest available model for nuanced evaluation with structured reasoning across subjective axes (uniqueness, plausibility, compelling factor) and can articulate *why* — which is the point of the scoring layer.
+Scoring runs once per conversation, not per turn, so cost scales linearly with run count. o3 is the strongest available model for nuanced evaluation with structured reasoning across subjective axes (uniqueness, plausibility, compelling factor) and can articulate *why* — which is the point of the scoring layer.
 
 ### Conversation Model — Local inference on 4x 5060Ti GPUs
 

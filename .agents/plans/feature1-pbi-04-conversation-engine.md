@@ -25,7 +25,7 @@ So that productive friction and creative misunderstandings can emerge from their
 
 ## Context References — READ BEFORE IMPLEMENTING
 
-- `CLAUDE.md` — Engine boundary: communicates with vLLM **only**, no Anthropic API imports
+- `CLAUDE.md` — Engine boundary: communicates with vLLM **only**, must not call the remote OpenAI API directly
 - `CLAUDE.md` — Async patterns: all I/O as `async`, never synchronous blocking
 - `CLAUDE.md` — Error handling: custom exceptions, structured logging
 - `.agents/DevPlan.md` (lines 35-43) — Feature 1 definition: two agents, shared object, fixed turns, transcripts logged
@@ -395,7 +395,7 @@ class ConversationRunner:
         return messages
 ```
 
-- **PATTERN**: Engine imports only `AsyncOpenAI` — no Anthropic SDK. Custom exceptions defined in this module. `extra_body` for vLLM-specific params.
+- **PATTERN**: Engine imports only `AsyncOpenAI` pointed at the local vLLM server — must never use the remote OpenAI API. Custom exceptions defined in this module. `extra_body` for vLLM-specific params.
 - **GOTCHA**: `repetition_penalty` must go through `extra_body`. Do NOT combine with `frequency_penalty`/`presence_penalty`. The `httpx` import is needed for `Timeout` configuration. Empty content check catches degenerate model responses.
 - **VALIDATE**: `uv run python -c "from src.engine.conversation import ConversationRunner; print('ConversationRunner loaded')"`
 
@@ -420,18 +420,17 @@ uv run python -c "from src.engine.conversation import ConversationRunner, Infere
 uv run ruff check src/engine/
 uv run ruff format --check src/engine/
 
-# Verify no Anthropic imports (boundary check)
+# Verify engine only uses vLLM base_url, not remote OpenAI API (boundary check)
+# With OpenAI SDK used for both vLLM and remote API, the boundary is architectural:
+# engine code must always instantiate AsyncOpenAI with settings.vllm_base_url
 uv run python -c "
 import ast
 from pathlib import Path
 for f in Path('src/engine').rglob('*.py'):
-    tree = ast.parse(f.read_text())
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                assert 'anthropic' not in alias.name, f'Boundary violation in {f}'
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            assert 'anthropic' not in node.module, f'Boundary violation in {f}'
+    source = f.read_text()
+    # Engine should reference vllm_base_url, not openai_api_key
+    if 'openai_api_key' in source:
+        raise AssertionError(f'Boundary violation in {f}: engine must not use openai_api_key (remote API)')
 print('No boundary violations in src/engine/')
 "
 ```
@@ -444,7 +443,7 @@ print('No boundary violations in src/engine/')
 - [ ] Each persona sees the other's turns as `user` and their own as `assistant`
 - [ ] `InferenceError` raised on connection failure, timeout, HTTP error, or empty response
 - [ ] `repetition_penalty` passed via `extra_body` (not top-level kwarg)
-- [ ] No `anthropic` imports in `src/engine/`
+- [ ] Engine only uses `AsyncOpenAI` with `vllm_base_url` — never the remote OpenAI API
 - [ ] Ruff passes on `src/engine/`
 
 ## KEY RISKS

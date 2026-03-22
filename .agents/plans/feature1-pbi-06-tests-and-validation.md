@@ -637,18 +637,22 @@ def _get_all_imports_in_dir(dir_path: Path) -> set[str]:
     return all_imports
 
 
-def test_engine_has_no_anthropic_imports() -> None:
-    """Verify the engine module does not import the Anthropic SDK.
+def test_engine_does_not_use_remote_openai_api() -> None:
+    """Verify the engine module only uses vLLM, not the remote OpenAI API.
 
-    The engine layer communicates with vLLM only — never the Anthropic API.
+    Both engine and synthesis/scoring use the openai SDK, but engine must
+    only connect to the local vLLM server. We verify by checking that engine
+    source never references openai_api_key (the remote API credential).
     """
     engine_dir = Path("src/engine")
     if not engine_dir.exists():
         return
-    imports = _get_all_imports_in_dir(engine_dir)
-    assert "anthropic" not in imports, (
-        "src/engine/ must not import anthropic — it communicates with vLLM only"
-    )
+    for py_file in engine_dir.rglob("*.py"):
+        source = py_file.read_text()
+        assert "openai_api_key" not in source, (
+            f"src/engine/{py_file.name} must not reference openai_api_key "
+            "— it communicates with vLLM only"
+        )
 
 
 def test_personas_has_no_llm_imports() -> None:
@@ -663,9 +667,6 @@ def test_personas_has_no_llm_imports() -> None:
     assert "openai" not in imports, (
         "src/personas/ must not import openai — it is pure data"
     )
-    assert "anthropic" not in imports, (
-        "src/personas/ must not import anthropic — it is pure data"
-    )
 
 
 def test_db_has_no_llm_imports() -> None:
@@ -679,9 +680,6 @@ def test_db_has_no_llm_imports() -> None:
     imports = _get_all_imports_in_dir(db_dir)
     assert "openai" not in imports, (
         "src/db/ must not import openai — it handles storage only"
-    )
-    assert "anthropic" not in imports, (
-        "src/db/ must not import anthropic — it handles storage only"
     )
 ```
 
@@ -777,7 +775,7 @@ uv run ruff format --check .
 - [ ] `uv run pytest -v` — all tests green
 - [ ] `uv run ruff check .` — zero errors
 - [ ] `uv run ruff format --check .` — zero errors
-- [ ] Boundary tests verify: engine has no anthropic, personas has no LLM imports, db has no LLM imports
+- [ ] Boundary tests verify: engine doesn't use remote OpenAI API, personas has no LLM imports, db has no LLM imports
 - [ ] All LLM calls mocked — no real inference in tests
 - [ ] CLI smoke tests pass (--list-personas, --list-objects)
 
