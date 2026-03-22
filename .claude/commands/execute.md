@@ -54,4 +54,4 @@ Provide a summary covering:
 - Tasks completed
 - Validation results
 - Any deviations from the plan and why
-- Ready for `/commit`
+- Ready for `/git-compush`

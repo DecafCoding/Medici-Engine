@@ -13,7 +13,7 @@ from src.personas.models import SharedObject
 def test_library_has_minimum_personas() -> None:
     """Verify the library contains at least 4 personas for Feature 1."""
     personas = get_all_personas()
-    assert len(personas) >= 4
+    assert len(personas) >= 12
 
 
 def test_all_personas_fully_specified() -> None:
@@ -89,7 +89,7 @@ def test_persona_generates_system_prompt() -> None:
 def test_shared_objects_pool_not_empty() -> None:
     """Verify the shared objects pool has entries."""
     objects = get_all_shared_objects()
-    assert len(objects) >= 3
+    assert len(objects) >= 10
 
 
 def test_get_random_shared_object_returns_valid() -> None:
