@@ -3,15 +3,20 @@
 from uuid import UUID, uuid4
 
 from src.db.queries import (
+    ConceptCreate,
     RunCreate,
     Turn,
     complete_run,
+    create_concept,
     create_run,
     fail_run,
+    get_concept_by_run_id,
+    get_concepts,
     get_recent_pairings,
     get_run_by_id,
     get_runs,
     record_pairing,
+    update_concept_status,
 )
 
 
@@ -131,3 +136,107 @@ async def test_pairing_history_tracks_pairings(db) -> None:
     assert len(recent) == 1
     # Names are sorted in record_pairing
     assert recent[0] == ("builder", "physicist")
+
+
+# ── Concept Query Tests ──────────────────────────────
+
+
+async def _create_test_run(db):
+    """Helper to create a run for concept tests."""
+    return await create_run(
+        db,
+        RunCreate(
+            persona_a_name="physicist",
+            persona_b_name="builder",
+            shared_object_text="A test scenario",
+        ),
+    )
+
+
+async def test_create_concept(db) -> None:
+    """Verify a concept can be created and linked to a run."""
+    run = await _create_test_run(db)
+    concept = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="The Architecture of Forgetting",
+            premise="Buildings that preserve by decaying.",
+            originality="Combines structural failure with information theory.",
+        ),
+    )
+    assert concept.title == "The Architecture of Forgetting"
+    assert concept.run_id == run.id
+    assert concept.status == "pending"
+    assert concept.created_at is not None
+
+
+async def test_get_concepts_filters_by_status(db) -> None:
+    """Verify concepts can be filtered by review status."""
+    run = await _create_test_run(db)
+    concept1 = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="Concept One",
+            premise="Premise one.",
+            originality="Original one.",
+        ),
+    )
+    run2 = await _create_test_run(db)
+    await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run2.id,
+            title="Concept Two",
+            premise="Premise two.",
+            originality="Original two.",
+        ),
+    )
+    await update_concept_status(db, concept1.id, "kept")
+
+    kept = await get_concepts(db, status="kept")
+    pending = await get_concepts(db, status="pending")
+    assert len(kept) == 1
+    assert kept[0].title == "Concept One"
+    assert len(pending) == 1
+    assert pending[0].title == "Concept Two"
+
+
+async def test_get_concept_by_run_id(db) -> None:
+    """Verify a concept can be fetched by its associated run ID."""
+    run = await _create_test_run(db)
+    created = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="Test Concept",
+            premise="Test premise.",
+            originality="Test originality.",
+        ),
+    )
+    fetched = await get_concept_by_run_id(db, run.id)
+    assert fetched is not None
+    assert fetched.id == created.id
+    assert fetched.title == "Test Concept"
+
+
+async def test_update_concept_status(db) -> None:
+    """Verify a concept's status can be changed from pending to kept/discarded."""
+    run = await _create_test_run(db)
+    concept = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="Status Test",
+            premise="Test premise.",
+            originality="Test originality.",
+        ),
+    )
+    assert concept.status == "pending"
+
+    updated = await update_concept_status(db, concept.id, "kept")
+    assert updated.status == "kept"
+
+    discarded = await update_concept_status(db, concept.id, "discarded")
+    assert discarded.status == "discarded"

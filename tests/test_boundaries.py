@@ -75,3 +75,54 @@ def test_db_has_no_llm_imports() -> None:
     assert "openai" not in imports, (
         "src/db/ must not import openai — it handles storage only"
     )
+
+
+# ── Synthesis Boundary Tests ─────────────────────────
+
+
+def test_synthesis_uses_remote_openai_api() -> None:
+    """Verify synthesis source references openai_api_key (remote API).
+
+    The synthesis layer communicates with the remote OpenAI API,
+    not the local vLLM server.
+    """
+    synthesis_dir = Path("src/synthesis")
+    for py_file in synthesis_dir.rglob("*.py"):
+        source = py_file.read_text()
+        if "AsyncOpenAI" in source:
+            assert "openai_api_key" in source, (
+                f"src/synthesis/{py_file.name} uses AsyncOpenAI but does not "
+                "reference openai_api_key — it must use the remote API"
+            )
+
+
+def test_synthesis_does_not_use_vllm() -> None:
+    """Verify synthesis source does NOT reference vllm_base_url.
+
+    The synthesis layer must not connect to the local vLLM server.
+    """
+    synthesis_dir = Path("src/synthesis")
+    for py_file in synthesis_dir.rglob("*.py"):
+        source = py_file.read_text()
+        assert "vllm_base_url" not in source, (
+            f"src/synthesis/{py_file.name} must not reference vllm_base_url "
+            "— it communicates with the remote OpenAI API only"
+        )
+
+
+def test_synthesis_does_not_import_engine() -> None:
+    """Verify synthesis does not import from src.engine (layer violation).
+
+    The synthesis layer sits above the engine layer in the dependency
+    hierarchy, so it must not import from the engine.
+    """
+    synthesis_dir = Path("src/synthesis")
+    for py_file in synthesis_dir.rglob("*.py"):
+        source = py_file.read_text()
+        assert "from src.engine" not in source, (
+            f"src/synthesis/{py_file.name} must not import from src.engine "
+            "— synthesis sits above the engine layer"
+        )
+        assert "import src.engine" not in source, (
+            f"src/synthesis/{py_file.name} must not import src.engine"
+        )

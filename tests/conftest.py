@@ -2,8 +2,8 @@
 Shared test fixtures for the Medici Engine test suite.
 
 Provides in-memory database connections, mock vLLM responses,
-and test persona/shared object data. All LLM calls are mocked —
-no real inference happens in tests.
+mock synthesis responses, and test persona/shared object data.
+All LLM calls are mocked — no real inference happens in tests.
 """
 
 from unittest.mock import MagicMock
@@ -12,9 +12,11 @@ import aiosqlite
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.db.queries import Turn
 from src.db.schema import init_schema
 from src.main import app
 from src.personas.models import Persona, SharedObject
+from src.synthesis.models import ConceptExtraction
 
 
 @pytest.fixture
@@ -84,3 +86,69 @@ def mock_openai_response():
         return response
 
     return _make_response
+
+
+@pytest.fixture
+def mock_parse_response():
+    """Create a factory for mock OpenAI structured output parse responses."""
+
+    def _make_response(
+        extraction: ConceptExtraction | None = None,
+        refusal: str | None = None,
+    ) -> MagicMock:
+        response = MagicMock()
+        choice = MagicMock()
+        choice.message.parsed = extraction
+        choice.message.refusal = refusal
+        response.choices = [choice]
+        return response
+
+    return _make_response
+
+
+@pytest.fixture
+def test_concept_extraction() -> ConceptExtraction:
+    """Provide a sample concept extraction for synthesis tests."""
+    return ConceptExtraction(
+        title="The Architecture of Forgetting",
+        premise=(
+            "A civilization discovers that its most enduring structures were "
+            "never designed to last — they survived because they encoded a "
+            "pattern of deliberate decay that mimics biological adaptation."
+        ),
+        originality=(
+            "Combines structural engineering's concept of load-bearing failure "
+            "points with information theory's erasure coding — neither domain "
+            "alone would produce the idea of a building that preserves itself "
+            "by strategically forgetting parts of its own blueprint."
+        ),
+    )
+
+
+@pytest.fixture
+def test_transcript() -> list[Turn]:
+    """Provide a sample transcript for synthesis tests."""
+    return [
+        Turn(
+            turn_number=1,
+            persona_name="test_physicist",
+            content=(
+                "The interesting question is what information is being preserved here."
+            ),
+        ),
+        Turn(
+            turn_number=2,
+            persona_name="test_builder",
+            content="Show me where the weight goes. A structure stands or it falls.",
+        ),
+        Turn(
+            turn_number=3,
+            persona_name="test_physicist",
+            content="But what if the collapse itself encodes something?",
+        ),
+        Turn(
+            turn_number=4,
+            persona_name="test_builder",
+            content="A wall that falls on purpose is not a wall. It is a message.",
+        ),
+    ]
