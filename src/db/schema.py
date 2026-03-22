@@ -55,6 +55,21 @@ CREATE TABLE IF NOT EXISTS concepts (
 
 CREATE INDEX IF NOT EXISTS idx_concepts_run_id ON concepts(run_id);
 CREATE INDEX IF NOT EXISTS idx_concepts_status ON concepts(status);
+
+CREATE TABLE IF NOT EXISTS scores (
+    id TEXT PRIMARY KEY,
+    concept_id TEXT NOT NULL UNIQUE,
+    uniqueness_score REAL NOT NULL,
+    uniqueness_reasoning TEXT NOT NULL,
+    plausibility_score REAL NOT NULL,
+    plausibility_reasoning TEXT NOT NULL,
+    compelling_factor_score REAL NOT NULL,
+    compelling_factor_reasoning TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (concept_id) REFERENCES concepts(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_scores_concept_id ON scores(concept_id);
 """
 
 

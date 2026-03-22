@@ -86,6 +86,32 @@ class ConceptCreate(BaseModel):
     originality: str
 
 
+class Score(BaseModel):
+    """Per-axis scores and reasoning for a concept evaluation."""
+
+    id: UUID
+    concept_id: UUID
+    uniqueness_score: float
+    uniqueness_reasoning: str
+    plausibility_score: float
+    plausibility_reasoning: str
+    compelling_factor_score: float
+    compelling_factor_reasoning: str
+    created_at: str
+
+
+class ScoreCreate(BaseModel):
+    """Input model for creating a new score."""
+
+    concept_id: UUID
+    uniqueness_score: float
+    uniqueness_reasoning: str
+    plausibility_score: float
+    plausibility_reasoning: str
+    compelling_factor_score: float
+    compelling_factor_reasoning: str
+
+
 # ── Helpers ───────────────────────────────────────────
 
 
@@ -119,6 +145,21 @@ def _row_to_concept(row: aiosqlite.Row) -> Concept:
         premise=row["premise"],
         originality=row["originality"],
         status=row["status"],
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_score(row: aiosqlite.Row) -> Score:
+    """Map a database row to a Score model."""
+    return Score(
+        id=UUID(row["id"]),
+        concept_id=UUID(row["concept_id"]),
+        uniqueness_score=row["uniqueness_score"],
+        uniqueness_reasoning=row["uniqueness_reasoning"],
+        plausibility_score=row["plausibility_score"],
+        plausibility_reasoning=row["plausibility_reasoning"],
+        compelling_factor_score=row["compelling_factor_score"],
+        compelling_factor_reasoning=row["compelling_factor_reasoning"],
         created_at=row["created_at"],
     )
 
@@ -344,3 +385,57 @@ async def update_concept_status(
     if row is None:
         raise RuntimeError(f"Concept not found after update: {concept_id}")
     return _row_to_concept(row)
+
+
+# ── Score Queries ───────────────────────────────────
+
+
+async def create_score(db: aiosqlite.Connection, score: ScoreCreate) -> Score:
+    """Insert a new score record and return the hydrated model."""
+    score_id = str(uuid4())
+    await db.execute(
+        "INSERT INTO scores (id, concept_id, uniqueness_score, uniqueness_reasoning, "
+        "plausibility_score, plausibility_reasoning, compelling_factor_score, "
+        "compelling_factor_reasoning) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            score_id,
+            str(score.concept_id),
+            score.uniqueness_score,
+            score.uniqueness_reasoning,
+            score.plausibility_score,
+            score.plausibility_reasoning,
+            score.compelling_factor_score,
+            score.compelling_factor_reasoning,
+        ),
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT * FROM scores WHERE id = ?", (score_id,))
+    row = await cursor.fetchone()
+    if row is None:
+        raise RuntimeError(f"Failed to retrieve score after insert: {score_id}")
+    return _row_to_score(row)
+
+
+async def get_score_by_concept_id(
+    db: aiosqlite.Connection,
+    concept_id: UUID,
+) -> Score | None:
+    """Fetch the score for a specific concept."""
+    cursor = await db.execute(
+        "SELECT * FROM scores WHERE concept_id = ?", (str(concept_id),)
+    )
+    row = await cursor.fetchone()
+    return _row_to_score(row) if row else None
+
+
+async def get_scores(
+    db: aiosqlite.Connection,
+    limit: int = 20,
+) -> list[Score]:
+    """Fetch recent scores."""
+    cursor = await db.execute(
+        "SELECT * FROM scores ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_score(row) for row in rows]
