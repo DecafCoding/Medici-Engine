@@ -1,0 +1,74 @@
+"""
+Data models for the persona library.
+
+Defines the Persona and SharedObject structures used throughout
+the system. This module belongs to the Persona layer and contains
+no LLM-related logic or imports.
+"""
+
+from pydantic import BaseModel, Field
+
+
+class Persona(BaseModel):
+    """A fully specified persona for conversation agents.
+
+    Each persona is defined across four dimensions: worldview,
+    vocabulary style, core obsessions, and characteristic way
+    of seeing. Generic job titles are not sufficient — depth
+    across all dimensions is required.
+    """
+
+    name: str = Field(description="Unique identifier for this persona")
+    title: str = Field(description="Short descriptive title")
+    worldview: str = Field(
+        description=(
+            "How this persona understands reality and what they believe is fundamental"
+        ),
+    )
+    vocabulary_style: str = Field(
+        description="Characteristic language patterns, jargon, and rhetorical habits",
+    )
+    core_obsessions: str = Field(
+        description=(
+            "The problems and questions this persona cannot stop thinking about"
+        ),
+    )
+    way_of_seeing: str = Field(
+        description="How this persona perceives and interprets new information",
+    )
+
+    def to_system_prompt(self) -> str:
+        """Generate a system prompt that embodies this persona.
+
+        Returns a prompt that instructs the LLM to fully inhabit
+        the persona across all four dimensions.
+        """
+        return (
+            f"You are {self.title}.\n\n"
+            f"WORLDVIEW: {self.worldview}\n\n"
+            f"VOCABULARY & STYLE: {self.vocabulary_style}\n\n"
+            f"CORE OBSESSIONS: {self.core_obsessions}\n\n"
+            f"WAY OF SEEING: {self.way_of_seeing}\n\n"
+            "Stay fully in character. Respond from this perspective in every turn. "
+            "Use your characteristic vocabulary and reasoning patterns. "
+            "Do not break character or acknowledge that you are an AI. "
+            "Engage genuinely with what the other person says, but always "
+            "through your own lens and obsessions."
+        )
+
+
+class SharedObject(BaseModel):
+    """A shared object that two personas react to in conversation.
+
+    The shared object is the seed for creative collision — something
+    concrete enough to provoke specific reactions but open enough
+    for radically different interpretations.
+    """
+
+    text: str = Field(description="The shared object description or prompt")
+    object_type: str = Field(
+        default="scenario",
+        description=(
+            "Type of shared object: scenario, question, problem, image_description"
+        ),
+    )
