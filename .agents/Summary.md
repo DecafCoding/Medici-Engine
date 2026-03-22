@@ -1,4 +1,4 @@
-# Yield Engine — Project Summary
+# Medici Engine — Project Summary
 
 *Last updated: March 2026*
 
@@ -6,7 +6,7 @@
 
 ## What It Is
 
-The Yield Engine is a standalone multi-agent creative collision system designed to simulate the kind of unexpected, cross-domain collisions that have historically produced breakthrough ideas. The system pairs AI agents embodying radically different personas and domain knowledge, lets their conversation generate friction and misunderstanding, then extracts the novel ideas that emerge in the gap — artifacts that neither agent would have produced alone.
+The Medici Engine is a standalone multi-agent creative collision system designed to simulate the kind of unexpected, cross-domain collisions that have historically produced breakthrough ideas. The system pairs AI agents embodying radically different personas and domain knowledge, lets their conversation generate friction and misunderstanding, then extracts the novel ideas that emerge in the gap — artifacts that neither agent would have produced alone.
 
 The system is domain-agnostic. It can be pointed at any creative or conceptual problem where outsider perspectives are generative. The first application domain is sci-fi book concepts: the system surfaces novel premises — not plots or characters, but central ideas so structurally original they could anchor a book.
 
@@ -22,7 +22,7 @@ This is hard to engineer deliberately because:
 - The moment of recognition requires human judgment
 - You can't manufacture serendipity — but you can increase the surface area for it
 
-The Yield Engine is designed to manufacture outsider perspectives at scale.
+The Medici Engine is designed to manufacture outsider perspectives at scale.
 
 ---
 
@@ -65,7 +65,7 @@ The synthesizer's output is surfaced to a human reviewer through a basic review 
 
 ## Scale and Yield Expectations
 
-The Yield Engine is honest about how creativity works. Run many conversations. Expect most to produce nothing. Treat it as a stochastic search process — not trying to guarantee output quality, but trying to increase the probability of encountering something genuinely novel.
+The Medici Engine is honest about how creativity works. Run many conversations. Expect most to produce nothing. Treat it as a stochastic search process — not trying to guarantee output quality, but trying to increase the probability of encountering something genuinely novel.
 
 Rough expected yield:
 - ~60% produce nothing useful
@@ -97,7 +97,7 @@ This is the design intent, not a failure mode.
 
 The core mechanism driving the system. Domain experts carry invisible assumptions about what the constraints of their problem space are. An outsider — someone with no idea what the "right" answer is supposed to look like — describes problems in structurally accurate but domain-naive language. That naive framing often bypasses assumptions the expert didn't even know they were making.
 
-The Yield Engine is designed to manufacture this outsider perspective on demand, at scale.
+The Medici Engine is designed to manufacture this outsider perspective on demand, at scale.
 
 ---
 

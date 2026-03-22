@@ -15,7 +15,7 @@ Wire everything together: FastAPI app with lifespan-managed database, API routes
 
 As a creative researcher
 I want to run conversations from the command line and query results via API
-So that I can operate the Yield Engine for Features 1-4 without a web UI
+So that I can operate the Medici Engine for Features 1-4 without a web UI
 
 ## Preconditions
 
@@ -55,7 +55,7 @@ Minimal API routes for Feature 1. Full API comes in Feature 5.
 
 ```python
 """
-API routes for the Yield Engine.
+API routes for the Medici Engine.
 
 Provides REST endpoints for managing conversation runs and
 reviewing results. This module belongs to the API layer.
@@ -106,7 +106,7 @@ FastAPI application entry point with lifespan-managed database connection.
 
 ```python
 """
-Application entry point for the Yield Engine.
+Application entry point for the Medici Engine.
 
 Configures the FastAPI application with lifespan-managed resources
 including the SQLite database connection. This module belongs to
@@ -165,7 +165,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Yield Engine",
+    title="Medici Engine",
     description="Multi-agent creative collision system",
     version="0.1.0",
     lifespan=lifespan,
@@ -202,7 +202,7 @@ CLI entry point for running conversations (Features 1-4).
 
 ```python
 """
-CLI runner for the Yield Engine.
+CLI runner for the Medici Engine.
 
 Runs a single conversation between two persona agents with a shared
 object, stores the transcript in the database, and prints results.
@@ -248,7 +248,7 @@ logger = logging.getLogger(__name__)
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the conversation runner."""
     parser = argparse.ArgumentParser(
-        description="Run a Yield Engine conversation between two persona agents.",
+        description="Run a Medici Engine conversation between two persona agents.",
     )
     parser.add_argument(
         "--turns",

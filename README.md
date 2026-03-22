@@ -1,4 +1,4 @@
-# Yield Engine
+# Medici Engine
 
 A multi-agent creative collision system that pairs AI agents embodying radically different personas, gives them a shared object to react to, and mines the productive misunderstandings for novel ideas.
 

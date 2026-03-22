@@ -1,6 +1,6 @@
-# CLAUDE.md — Yield Engine Development Guide
+# CLAUDE.md — Medici Engine Development Guide
 
-This file provides the conventions, rules, and architectural guidelines for AI-assisted development on the Yield Engine project. It is the authoritative source for how code should be written, structured, and documented.
+This file provides the conventions, rules, and architectural guidelines for AI-assisted development on the Medici Engine project. It is the authoritative source for how code should be written, structured, and documented.
 
 For the development plan and resolved decisions, see `.agents/DevPlan.md`. For the project summary and design rationale, see `.agents/Summary.md`.
 
@@ -12,7 +12,7 @@ Be honest in all reviews of code, comments, plans, and suggestions. If something
 
 ## Project Overview
 
-The Yield Engine is a multi-agent creative collision system. It pairs AI agents embodying radically different personas, gives them a shared object to react to, and mines the productive misunderstandings for novel ideas. A synthesizer agent extracts structured output from the conversation, a scoring model rates it with reasoning, and a human makes the final keep/discard call.
+The Medici Engine is a multi-agent creative collision system. It pairs AI agents embodying radically different personas, gives them a shared object to react to, and mines the productive misunderstandings for novel ideas. A synthesizer agent extracts structured output from the conversation, a scoring model rates it with reasoning, and a human makes the final keep/discard call.
 
 **Tech stack summary:** Python 3.12, uv (package manager), FastAPI, Pydantic AI, SQLite (aiosqlite), vLLM (local inference), Anthropic API (synthesis + scoring), Ruff, Pytest.
 
@@ -28,7 +28,7 @@ Every Python file must begin with a module-level docstring describing the file's
 
 ```python
 """
-Conversation runner for the Yield Engine.
+Conversation runner for the Medici Engine.
 
 Manages turn-taking between two persona agents given a shared object,
 producing a full conversation transcript. This module belongs to the

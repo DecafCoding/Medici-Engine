@@ -9,7 +9,7 @@
 
 ## Objective
 
-Bootstrap the Yield Engine project from zero: initialize uv, install all dependencies, configure Ruff and Pytest, create the `.env` pattern, and implement the configuration module that all other layers depend on.
+Bootstrap the Medici Engine project from zero: initialize uv, install all dependencies, configure Ruff and Pytest, create the `.env` pattern, and implement the configuration module that all other layers depend on.
 
 ## User Story
 
@@ -206,7 +206,7 @@ Single source of truth for all configuration. Other modules import from here —
 
 ```python
 """
-Configuration module for the Yield Engine.
+Configuration module for the Medici Engine.
 
 Loads all settings from environment variables via python-dotenv.
 This is the single source of truth for configuration — no other

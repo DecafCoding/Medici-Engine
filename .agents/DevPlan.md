@@ -1,4 +1,4 @@
-# Yield Engine — Development Plan
+# Medici Engine — Development Plan
 
 *Last updated: March 2026*
 
@@ -90,7 +90,7 @@ Adapt the synthesizer and scoring layer for a second application domain. This va
 
 The choice of second domain should be driven by what would be most useful at the time, not decided in advance.
 
-**Done when:** The Yield Engine can produce structured, scored output for two distinct domains from the same conversation engine and persona library.
+**Done when:** The Medici Engine can produce structured, scored output for two distinct domains from the same conversation engine and persona library.
 
 ---
 
@@ -138,7 +138,7 @@ Scoring runs once per conversation, not per turn, so cost scales linearly with r
 
 ### Conversation Model — Local inference on 4x 5060Ti GPUs
 
-The conversation agents run on locally hosted models, served via vLLM with its OpenAI-compatible API endpoint. vLLM over llama.cpp because of native multi-GPU tensor parallelism (`--tensor-parallel-size N`), production-grade OpenAI-compatible serving, and continuous batching for efficient parallel conversation handling. This keeps the Yield Engine code model-agnostic — it hits a local URL instead of a remote API. Swapping models is a config change, not a code change.
+The conversation agents run on locally hosted models, served via vLLM with its OpenAI-compatible API endpoint. vLLM over llama.cpp because of native multi-GPU tensor parallelism (`--tensor-parallel-size N`), production-grade OpenAI-compatible serving, and continuous batching for efficient parallel conversation handling. This keeps the Medici Engine code model-agnostic — it hits a local URL instead of a remote API. Swapping models is a config change, not a code change.
 
 **Hardware:** 4x NVIDIA 5060Ti (16GB VRAM each, 64GB total).
 

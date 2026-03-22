@@ -9,7 +9,7 @@
 
 ## Objective
 
-Build the conversation runner — the heart of the Yield Engine. The ConversationRunner takes two personas and a shared object, manages alternating turns via the local vLLM server (OpenAI-compatible API), and returns a complete transcript. This is the component that turns persona specifications into actual creative collisions.
+Build the conversation runner — the heart of the Medici Engine. The ConversationRunner takes two personas and a shared object, manages alternating turns via the local vLLM server (OpenAI-compatible API), and returns a complete transcript. This is the component that turns persona specifications into actual creative collisions.
 
 ## User Story
 
@@ -129,7 +129,7 @@ The core conversation runner.
 
 ```python
 """
-Conversation runner for the Yield Engine.
+Conversation runner for the Medici Engine.
 
 Manages turn-taking between two persona agents given a shared object,
 producing a full conversation transcript. This module belongs to the

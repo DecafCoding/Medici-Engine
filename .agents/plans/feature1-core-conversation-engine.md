@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build the foundational conversation engine for the Yield Engine: two AI agents with assigned personas converse about a shared object, producing full transcripts logged to SQLite. This feature bootstraps the entire project from zero.
+Build the foundational conversation engine for the Medici Engine: two AI agents with assigned personas converse about a shared object, producing full transcripts logged to SQLite. This feature bootstraps the entire project from zero.
 
 ## User Story
 

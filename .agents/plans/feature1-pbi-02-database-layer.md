@@ -58,7 +58,7 @@ SQL schema definitions and initialization function.
 
 ```python
 """
-Database schema definitions for the Yield Engine.
+Database schema definitions for the Medici Engine.
 
 Contains all CREATE TABLE statements and the schema initialization
 function. This module belongs to the Data layer and is called during
@@ -126,7 +126,7 @@ Typed query layer — the only module that touches SQLite. Returns Pydantic mode
 
 ```python
 """
-Typed query layer for the Yield Engine.
+Typed query layer for the Medici Engine.
 
 All database access flows through this module. Functions accept an
 aiosqlite connection and return Pydantic models — never raw rows or

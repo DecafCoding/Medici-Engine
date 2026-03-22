@@ -57,7 +57,7 @@ Shared test fixtures for all test modules.
 
 ```python
 """
-Shared test fixtures for the Yield Engine test suite.
+Shared test fixtures for the Medici Engine test suite.
 
 Provides in-memory database connections, mock vLLM responses,
 and test persona/shared object data. All LLM calls are mocked —

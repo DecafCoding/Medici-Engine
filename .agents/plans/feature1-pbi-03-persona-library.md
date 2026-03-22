@@ -137,7 +137,7 @@ Persona definitions, shared objects, and selection logic.
 
 ```python
 """
-Persona library and selection logic for the Yield Engine.
+Persona library and selection logic for the Medici Engine.
 
 Contains the curated set of fully specified personas and the logic
 for selecting pairs while avoiding recent repeats. This module
