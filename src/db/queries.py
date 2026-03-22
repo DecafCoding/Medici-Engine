@@ -308,6 +308,16 @@ async def get_concepts(
     return [_row_to_concept(row) for row in rows]
 
 
+async def get_concept_by_id(
+    db: aiosqlite.Connection,
+    concept_id: UUID,
+) -> Concept | None:
+    """Fetch a single concept by its ID."""
+    cursor = await db.execute("SELECT * FROM concepts WHERE id = ?", (str(concept_id),))
+    row = await cursor.fetchone()
+    return _row_to_concept(row) if row else None
+
+
 async def get_concept_by_run_id(
     db: aiosqlite.Connection,
     run_id: UUID,

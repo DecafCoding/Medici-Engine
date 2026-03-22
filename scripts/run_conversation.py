@@ -2,12 +2,15 @@
 CLI runner for the Medici Engine.
 
 Runs a single conversation between two persona agents with a shared
-object, stores the transcript in the database, and prints results.
-This is the primary interface for Features 1-4.
+object, stores the transcript in the database, optionally synthesizes
+a concept from the transcript, and prints results. This is the primary
+interface for Features 1-4.
 
 Usage:
     uv run python scripts/run_conversation.py
     uv run python scripts/run_conversation.py --turns 3
+    uv run python scripts/run_conversation.py --no-synthesis
+    uv run python scripts/run_conversation.py --synthesis-only <run-id>
     uv run python scripts/run_conversation.py \\
         --persona-a quantum_information_theorist \\
         --persona-b medieval_master_builder
@@ -18,15 +21,19 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
+from uuid import UUID
 
 import aiosqlite
 
 from src.config import settings
 from src.db.queries import (
+    ConceptCreate,
     RunCreate,
     complete_run,
+    create_concept,
     create_run,
     fail_run,
+    get_run_by_id,
     record_pairing,
 )
 from src.db.schema import init_schema
@@ -39,6 +46,7 @@ from src.personas.library import (
     get_persona_pair,
     get_random_shared_object,
 )
+from src.synthesis.synthesizer import SynthesisError, Synthesizer
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +90,127 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="List all available shared objects and exit",
     )
+    parser.add_argument(
+        "--no-synthesis",
+        action="store_true",
+        help="Skip synthesis after conversation (default: synthesis runs)",
+    )
+    parser.add_argument(
+        "--synthesis-only",
+        type=str,
+        default=None,
+        metavar="RUN_ID",
+        help="Run synthesis on an existing completed run (skip conversation)",
+    )
     return parser.parse_args()
+
+
+async def _run_synthesis(
+    db: aiosqlite.Connection,
+    run_record_id: UUID,
+    transcript: list,
+    persona_a_name: str,
+    persona_b_name: str,
+    shared_object_text: str,
+) -> None:
+    """Run synthesis on a transcript and persist the extracted concept.
+
+    Synthesis failure is logged but does not raise — the conversation
+    transcript is already saved and synthesis can be retried later.
+
+    Args:
+        db: Database connection.
+        run_record_id: ID of the run to attach the concept to.
+        transcript: Ordered list of conversation turns.
+        persona_a_name: Name of the first persona.
+        persona_b_name: Name of the second persona.
+        shared_object_text: The shared object that seeded the conversation.
+    """
+    if not settings.openai_api_key:
+        logger.warning("OPENAI_API_KEY not set — skipping synthesis")
+        print("\n⚠ Synthesis skipped: OPENAI_API_KEY not configured")
+        return
+
+    print(f"\n{'─' * 60}")
+    print("SYNTHESIS")
+    print(f"{'─' * 60}\n")
+
+    try:
+        synthesizer = Synthesizer()
+        extraction = await synthesizer.synthesize(
+            transcript=transcript,
+            persona_a_name=persona_a_name,
+            persona_b_name=persona_b_name,
+            shared_object_text=shared_object_text,
+        )
+
+        concept = await create_concept(
+            db,
+            ConceptCreate(
+                run_id=run_record_id,
+                title=extraction.title,
+                premise=extraction.premise,
+                originality=extraction.originality,
+            ),
+        )
+
+        print(f"Title:       {concept.title}")
+        print(f"Premise:     {concept.premise}")
+        print(f"Originality: {concept.originality}")
+        print(f"Concept ID:  {concept.id}")
+
+    except SynthesisError as e:
+        logger.error("Synthesis failed: %s", e)
+        print(f"\n⚠ Synthesis failed: {e}")
+        print("The conversation transcript has been saved. You can retry with:")
+        print(
+            f"  uv run python scripts/run_conversation.py"
+            f" --synthesis-only {run_record_id}"
+        )
+
+
+async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
+    """Run synthesis on an existing completed run.
+
+    Args:
+        db: Database connection.
+        run_id_str: String UUID of the run to synthesize.
+    """
+    try:
+        run_id = UUID(run_id_str)
+    except ValueError:
+        logger.error("Invalid run ID: %s", run_id_str)
+        sys.exit(1)
+
+    run_record = await get_run_by_id(db, run_id)
+    if run_record is None:
+        logger.error("Run not found: %s", run_id_str)
+        sys.exit(1)
+
+    if run_record.status != "completed":
+        logger.error("Run is not completed (status: %s)", run_record.status)
+        sys.exit(1)
+
+    if run_record.transcript is None:
+        logger.error("Run has no transcript")
+        sys.exit(1)
+
+    print(f"\n{'=' * 60}")
+    print("MEDICI ENGINE — Synthesis Only")
+    print(f"{'=' * 60}")
+    print(f"Run ID:     {run_record.id}")
+    print(f"Persona A:  {run_record.persona_a_name}")
+    print(f"Persona B:  {run_record.persona_b_name}")
+    print(f"{'=' * 60}")
+
+    await _run_synthesis(
+        db=db,
+        run_record_id=run_record.id,
+        transcript=run_record.transcript,
+        persona_a_name=run_record.persona_a_name,
+        persona_b_name=run_record.persona_b_name,
+        shared_object_text=run_record.shared_object_text,
+    )
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -108,6 +236,11 @@ async def run(args: argparse.Namespace) -> None:
     await init_schema(db)
 
     try:
+        # Handle synthesis-only mode
+        if args.synthesis_only:
+            await _synthesis_only(db, args.synthesis_only)
+            return
+
         # Select personas
         if args.persona_a and args.persona_b:
             persona_a = get_persona_by_name(args.persona_a)
@@ -194,6 +327,17 @@ async def run(args: argparse.Namespace) -> None:
         print(f"{'=' * 60}")
         print(f"Conversation completed. Run ID: {run_record.id}")
         print(f"{'=' * 60}")
+
+        # Run synthesis unless explicitly disabled
+        if not args.no_synthesis:
+            await _run_synthesis(
+                db=db,
+                run_record_id=run_record.id,
+                transcript=turns,
+                persona_a_name=persona_a.name,
+                persona_b_name=persona_b.name,
+                shared_object_text=shared_object.text,
+            )
 
     except ConversationError as e:
         logger.error("Conversation failed: %s", e)
