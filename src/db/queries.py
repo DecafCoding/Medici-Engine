@@ -41,6 +41,7 @@ class Run(BaseModel):
     transcript: list[Turn] | None = None
     status: str = Field(default="pending")
     error_message: str | None = None
+    batch_id: UUID | None = None
     created_at: str
     completed_at: str | None = None
 
@@ -53,6 +54,7 @@ class RunCreate(BaseModel):
     shared_object_text: str
     shared_object_type: str = "scenario"
     turns_per_agent: int = 5
+    batch_id: UUID | None = None
 
 
 class PairingRecord(BaseModel):
@@ -112,6 +114,40 @@ class ScoreCreate(BaseModel):
     compelling_factor_reasoning: str
 
 
+class Batch(BaseModel):
+    """A batch of conversation runs."""
+
+    id: UUID
+    total_runs: int
+    completed_runs: int
+    failed_runs: int
+    status: str
+    created_at: str
+    completed_at: str | None = None
+
+
+class BatchCreate(BaseModel):
+    """Input model for creating a new batch."""
+
+    total_runs: int
+
+
+class ConceptWithScore(BaseModel):
+    """A concept joined with its score data for the review table."""
+
+    id: UUID
+    run_id: UUID
+    title: str
+    premise: str
+    originality: str
+    status: str
+    created_at: str
+    uniqueness_score: float | None = None
+    plausibility_score: float | None = None
+    compelling_factor_score: float | None = None
+    overall_score: float | None = None
+
+
 # ── Helpers ───────────────────────────────────────────
 
 
@@ -131,6 +167,7 @@ def _row_to_run(row: aiosqlite.Row) -> Run:
         transcript=transcript,
         status=row["status"],
         error_message=row["error_message"],
+        batch_id=UUID(row["batch_id"]) if row["batch_id"] else None,
         created_at=row["created_at"],
         completed_at=row["completed_at"],
     )
@@ -146,6 +183,44 @@ def _row_to_concept(row: aiosqlite.Row) -> Concept:
         originality=row["originality"],
         status=row["status"],
         created_at=row["created_at"],
+    )
+
+
+def _row_to_batch(row: aiosqlite.Row) -> Batch:
+    """Map a database row to a Batch model."""
+    return Batch(
+        id=UUID(row["id"]),
+        total_runs=row["total_runs"],
+        completed_runs=row["completed_runs"],
+        failed_runs=row["failed_runs"],
+        status=row["status"],
+        created_at=row["created_at"],
+        completed_at=row["completed_at"],
+    )
+
+
+def _row_to_concept_with_score(row: aiosqlite.Row) -> ConceptWithScore:
+    """Map a joined concept+score row to a ConceptWithScore model."""
+    uniqueness = row["uniqueness_score"]
+    plausibility = row["plausibility_score"]
+    compelling = row["compelling_factor_score"]
+
+    overall = None
+    if uniqueness is not None and plausibility is not None and compelling is not None:
+        overall = round((uniqueness + plausibility + compelling) / 3.0, 2)
+
+    return ConceptWithScore(
+        id=UUID(row["id"]),
+        run_id=UUID(row["run_id"]),
+        title=row["title"],
+        premise=row["premise"],
+        originality=row["originality"],
+        status=row["status"],
+        created_at=row["created_at"],
+        uniqueness_score=uniqueness,
+        plausibility_score=plausibility,
+        compelling_factor_score=compelling,
+        overall_score=overall,
     )
 
 
@@ -184,8 +259,8 @@ async def create_run(db: aiosqlite.Connection, run: RunCreate) -> Run:
     run_id = str(uuid4())
     await db.execute(
         "INSERT INTO runs (id, persona_a_name, persona_b_name, "
-        "shared_object_text, shared_object_type, turns_per_agent) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "shared_object_text, shared_object_type, turns_per_agent, batch_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
         (
             run_id,
             run.persona_a_name,
@@ -193,6 +268,7 @@ async def create_run(db: aiosqlite.Connection, run: RunCreate) -> Run:
             run.shared_object_text,
             run.shared_object_type,
             run.turns_per_agent,
+            str(run.batch_id) if run.batch_id else None,
         ),
     )
     await db.commit()
@@ -439,3 +515,173 @@ async def get_scores(
     )
     rows = await cursor.fetchall()
     return [_row_to_score(row) for row in rows]
+
+
+# ── Batch Queries ──────────────────────────────────
+
+
+async def create_batch(db: aiosqlite.Connection, batch: BatchCreate) -> Batch:
+    """Insert a new batch record and return the hydrated model."""
+    batch_id = str(uuid4())
+    await db.execute(
+        "INSERT INTO batches (id, total_runs) VALUES (?, ?)",
+        (batch_id, batch.total_runs),
+    )
+    await db.commit()
+    result = await get_batch_by_id(db, UUID(batch_id))
+    if result is None:
+        raise RuntimeError(f"Failed to retrieve batch after insert: {batch_id}")
+    return result
+
+
+async def get_batch_by_id(db: aiosqlite.Connection, batch_id: UUID) -> Batch | None:
+    """Fetch a single batch by its ID."""
+    cursor = await db.execute("SELECT * FROM batches WHERE id = ?", (str(batch_id),))
+    row = await cursor.fetchone()
+    return _row_to_batch(row) if row else None
+
+
+async def get_batches(
+    db: aiosqlite.Connection,
+    limit: int = 20,
+) -> list[Batch]:
+    """Fetch recent batches ordered by creation date."""
+    cursor = await db.execute(
+        "SELECT * FROM batches ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_batch(row) for row in rows]
+
+
+async def increment_batch_completed(
+    db: aiosqlite.Connection,
+    batch_id: UUID,
+) -> Batch:
+    """Increment the completed run count for a batch."""
+    await db.execute(
+        "UPDATE batches SET completed_runs = completed_runs + 1 WHERE id = ?",
+        (str(batch_id),),
+    )
+    await db.commit()
+    result = await get_batch_by_id(db, batch_id)
+    if result is None:
+        raise RuntimeError(f"Batch not found after update: {batch_id}")
+    return result
+
+
+async def increment_batch_failed(
+    db: aiosqlite.Connection,
+    batch_id: UUID,
+) -> Batch:
+    """Increment the failed run count for a batch."""
+    await db.execute(
+        "UPDATE batches SET failed_runs = failed_runs + 1 WHERE id = ?",
+        (str(batch_id),),
+    )
+    await db.commit()
+    result = await get_batch_by_id(db, batch_id)
+    if result is None:
+        raise RuntimeError(f"Batch not found after update: {batch_id}")
+    return result
+
+
+async def complete_batch(
+    db: aiosqlite.Connection,
+    batch_id: UUID,
+) -> Batch:
+    """Mark a batch as completed or failed based on run outcomes.
+
+    Sets status to 'completed' if any runs succeeded, 'failed' if all
+    runs failed. Sets completed_at timestamp.
+    """
+    batch = await get_batch_by_id(db, batch_id)
+    if batch is None:
+        raise RuntimeError(f"Batch not found: {batch_id}")
+
+    # All runs failed = 'failed', otherwise 'completed' (partial success counts)
+    status = "failed" if batch.completed_runs == 0 else "completed"
+    now = datetime.now().isoformat()
+
+    await db.execute(
+        "UPDATE batches SET status = ?, completed_at = ? WHERE id = ?",
+        (status, now, str(batch_id)),
+    )
+    await db.commit()
+    result = await get_batch_by_id(db, batch_id)
+    if result is None:
+        raise RuntimeError(f"Batch not found after update: {batch_id}")
+    return result
+
+
+# ── Run-Batch Queries ─────────────────────────────
+
+
+async def get_runs_by_batch_id(
+    db: aiosqlite.Connection,
+    batch_id: UUID,
+    limit: int = 100,
+) -> list[Run]:
+    """Fetch runs associated with a specific batch."""
+    cursor = await db.execute(
+        "SELECT * FROM runs WHERE batch_id = ? ORDER BY created_at DESC LIMIT ?",
+        (str(batch_id), limit),
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_run(row) for row in rows]
+
+
+# ── Concept + Score Join Queries ──────────────────
+
+
+async def get_concepts_with_scores(
+    db: aiosqlite.Connection,
+    status: str | None = None,
+    sort_by: str = "date_desc",
+    limit: int = 20,
+) -> list[ConceptWithScore]:
+    """Fetch concepts joined with their scores for the review table.
+
+    Args:
+        db: Database connection.
+        status: Optional filter by concept review status.
+        sort_by: Sort order — 'score_desc', 'score_asc', 'date_desc', 'date_asc'.
+        limit: Maximum number of results.
+
+    Returns:
+        List of concepts with their score data attached.
+    """
+    base_query = (
+        "SELECT c.*, s.uniqueness_score, s.plausibility_score, "
+        "s.compelling_factor_score "
+        "FROM concepts c "
+        "LEFT JOIN scores s ON s.concept_id = c.id"
+    )
+
+    params: list[str | int] = []
+    if status:
+        base_query += " WHERE c.status = ?"
+        params.append(status)
+
+    # Sort order with NULLs last for score-based sorting
+    order_clauses = {
+        "score_desc": (
+            "ORDER BY (s.uniqueness_score IS NULL), "
+            "(s.uniqueness_score + s.plausibility_score "
+            "+ s.compelling_factor_score) / 3.0 DESC"
+        ),
+        "score_asc": (
+            "ORDER BY (s.uniqueness_score IS NULL), "
+            "(s.uniqueness_score + s.plausibility_score "
+            "+ s.compelling_factor_score) / 3.0 ASC"
+        ),
+        "date_desc": "ORDER BY c.created_at DESC",
+        "date_asc": "ORDER BY c.created_at ASC",
+    }
+    base_query += f" {order_clauses.get(sort_by, order_clauses['date_desc'])}"
+    base_query += " LIMIT ?"
+    params.append(limit)
+
+    cursor = await db.execute(base_query, params)
+    rows = await cursor.fetchall()
+    return [_row_to_concept_with_score(row) for row in rows]
