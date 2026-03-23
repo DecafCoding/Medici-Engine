@@ -65,3 +65,25 @@ async def get_concept(request: Request, concept_id: UUID) -> queries.Concept | N
     """Fetch a single concept by ID."""
     db = request.app.state.db
     return await queries.get_concept_by_id(db, concept_id)
+
+
+@router.get("/concepts/{concept_id}/scores")
+async def get_concept_scores(
+    request: Request, concept_id: UUID
+) -> queries.Score | None:
+    """Fetch the scores for a specific concept."""
+    db = request.app.state.db
+    return await queries.get_score_by_concept_id(db, concept_id)
+
+
+# ── Score Endpoints ─────────────────────────────────
+
+
+@router.get("/scores")
+async def list_scores(
+    request: Request,
+    limit: int = 20,
+) -> list[queries.Score]:
+    """List recent scores across all concepts."""
+    db = request.app.state.db
+    return await queries.get_scores(db, limit=limit)
