@@ -126,3 +126,72 @@ def test_synthesis_does_not_import_engine() -> None:
         assert "import src.engine" not in source, (
             f"src/synthesis/{py_file.name} must not import src.engine"
         )
+
+
+# ── Scoring Boundary Tests ─────────────────────────
+
+
+def test_scoring_uses_remote_openai_api() -> None:
+    """Verify scoring source references openai_api_key (remote API).
+
+    The scoring layer communicates with the remote OpenAI API,
+    not the local vLLM server.
+    """
+    scoring_dir = Path("src/scoring")
+    for py_file in scoring_dir.rglob("*.py"):
+        source = py_file.read_text()
+        if "AsyncOpenAI" in source:
+            assert "openai_api_key" in source, (
+                f"src/scoring/{py_file.name} uses AsyncOpenAI but does not "
+                "reference openai_api_key — it must use the remote API"
+            )
+
+
+def test_scoring_does_not_use_vllm() -> None:
+    """Verify scoring source does NOT reference vllm_base_url.
+
+    The scoring layer must not connect to the local vLLM server.
+    """
+    scoring_dir = Path("src/scoring")
+    for py_file in scoring_dir.rglob("*.py"):
+        source = py_file.read_text()
+        assert "vllm_base_url" not in source, (
+            f"src/scoring/{py_file.name} must not reference vllm_base_url "
+            "— it communicates with the remote OpenAI API only"
+        )
+
+
+def test_scoring_does_not_import_engine() -> None:
+    """Verify scoring does not import from src.engine (layer violation).
+
+    The scoring layer sits above the engine layer in the dependency
+    hierarchy, so it must not import from the engine.
+    """
+    scoring_dir = Path("src/scoring")
+    for py_file in scoring_dir.rglob("*.py"):
+        source = py_file.read_text()
+        assert "from src.engine" not in source, (
+            f"src/scoring/{py_file.name} must not import from src.engine "
+            "— scoring sits above the engine layer"
+        )
+        assert "import src.engine" not in source, (
+            f"src/scoring/{py_file.name} must not import src.engine"
+        )
+
+
+def test_scoring_does_not_import_synthesis() -> None:
+    """Verify scoring does not import from src.synthesis (layer violation).
+
+    The scoring layer receives data from synthesis but must not import
+    from it — it sits above synthesis in the dependency hierarchy.
+    """
+    scoring_dir = Path("src/scoring")
+    for py_file in scoring_dir.rglob("*.py"):
+        source = py_file.read_text()
+        assert "from src.synthesis" not in source, (
+            f"src/scoring/{py_file.name} must not import from src.synthesis "
+            "— scoring receives data, not modules"
+        )
+        assert "import src.synthesis" not in source, (
+            f"src/scoring/{py_file.name} must not import src.synthesis"
+        )
