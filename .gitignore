@@ -22,8 +22,8 @@ data/*.db
 *.swp
 *.swo
 
-# Claude Code local settings
-.claude/settings.local.json
+# Claude Folder
+.claude/
 
 # OS
 .DS_Store
