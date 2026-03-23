@@ -16,6 +16,7 @@ from src.db.queries import Turn
 from src.db.schema import init_schema
 from src.main import app
 from src.personas.models import Persona, SharedObject
+from src.scoring.models import AxisScore, ConceptScoring
 from src.synthesis.models import ConceptExtraction
 
 
@@ -121,6 +122,58 @@ def test_concept_extraction() -> ConceptExtraction:
             "points with information theory's erasure coding — neither domain "
             "alone would produce the idea of a building that preserves itself "
             "by strategically forgetting parts of its own blueprint."
+        ),
+    )
+
+
+@pytest.fixture
+def mock_scoring_response():
+    """Create a factory for mock OpenAI structured output scoring responses."""
+
+    def _make_response(
+        scoring: ConceptScoring | None = None,
+        refusal: str | None = None,
+    ) -> MagicMock:
+        response = MagicMock()
+        choice = MagicMock()
+        choice.message.parsed = scoring
+        choice.message.refusal = refusal
+        response.choices = [choice]
+        return response
+
+    return _make_response
+
+
+@pytest.fixture
+def test_concept_scoring() -> ConceptScoring:
+    """Provide a sample concept scoring for scorer tests."""
+    return ConceptScoring(
+        uniqueness=AxisScore(
+            axis="uniqueness",
+            score=8.5,
+            reasoning=(
+                "The concept of buildings that preserve themselves through "
+                "strategic decay is genuinely novel — no published sci-fi "
+                "explores erasure coding as an architectural principle."
+            ),
+        ),
+        plausibility=AxisScore(
+            axis="plausibility",
+            score=6.0,
+            reasoning=(
+                "The underlying information theory is sound, but the leap "
+                "to physical structures encoding redundancy through planned "
+                "failure requires generous extrapolation."
+            ),
+        ),
+        compelling_factor=AxisScore(
+            axis="compelling_factor",
+            score=7.5,
+            reasoning=(
+                "The idea that forgetting is a form of preservation is "
+                "immediately provocative and raises questions a reader "
+                "would want answered."
+            ),
         ),
     )
 

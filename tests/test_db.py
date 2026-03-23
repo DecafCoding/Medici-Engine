@@ -5,16 +5,19 @@ from uuid import UUID, uuid4
 from src.db.queries import (
     ConceptCreate,
     RunCreate,
+    ScoreCreate,
     Turn,
     complete_run,
     create_concept,
     create_run,
+    create_score,
     fail_run,
     get_concept_by_run_id,
     get_concepts,
     get_recent_pairings,
     get_run_by_id,
     get_runs,
+    get_score_by_concept_id,
     record_pairing,
     update_concept_status,
 )
@@ -240,3 +243,71 @@ async def test_update_concept_status(db) -> None:
 
     discarded = await update_concept_status(db, concept.id, "discarded")
     assert discarded.status == "discarded"
+
+
+# ── Score Query Tests ────────────────────────────────
+
+
+async def _create_test_concept(db):
+    """Helper to create a run and concept for score tests."""
+    run = await _create_test_run(db)
+    concept = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="Score Test Concept",
+            premise="Test premise for scoring.",
+            originality="Test originality for scoring.",
+        ),
+    )
+    return concept
+
+
+async def test_create_score(db) -> None:
+    """Verify a score can be created and linked to a concept."""
+    concept = await _create_test_concept(db)
+    score = await create_score(
+        db,
+        ScoreCreate(
+            concept_id=concept.id,
+            uniqueness_score=8.5,
+            uniqueness_reasoning="Highly novel concept.",
+            plausibility_score=6.0,
+            plausibility_reasoning="Requires generous extrapolation.",
+            compelling_factor_score=7.5,
+            compelling_factor_reasoning="Immediately provocative.",
+        ),
+    )
+    assert score.concept_id == concept.id
+    assert score.uniqueness_score == 8.5
+    assert score.uniqueness_reasoning == "Highly novel concept."
+    assert score.plausibility_score == 6.0
+    assert score.compelling_factor_score == 7.5
+    assert score.created_at is not None
+
+
+async def test_get_score_by_concept_id(db) -> None:
+    """Verify a score can be fetched by its associated concept ID."""
+    concept = await _create_test_concept(db)
+    created = await create_score(
+        db,
+        ScoreCreate(
+            concept_id=concept.id,
+            uniqueness_score=9.0,
+            uniqueness_reasoning="Unprecedented.",
+            plausibility_score=5.0,
+            plausibility_reasoning="Speculative.",
+            compelling_factor_score=8.0,
+            compelling_factor_reasoning="Page-turner potential.",
+        ),
+    )
+    fetched = await get_score_by_concept_id(db, concept.id)
+    assert fetched is not None
+    assert fetched.id == created.id
+    assert fetched.uniqueness_score == 9.0
+
+
+async def test_get_score_by_concept_id_returns_none_for_missing(db) -> None:
+    """Verify None is returned for a nonexistent concept ID."""
+    result = await get_score_by_concept_id(db, uuid4())
+    assert result is None
