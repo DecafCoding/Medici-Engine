@@ -2,15 +2,17 @@
 CLI runner for the Medici Engine.
 
 Runs a single conversation between two persona agents with a shared
-object, stores the transcript in the database, optionally synthesizes
-a concept from the transcript, and prints results. This is the primary
-interface for Features 1-4.
+object, stores the transcript in the database, synthesizes a concept
+from the transcript, scores it across evaluation axes, and prints
+results. This is the primary interface for Features 1-4.
 
 Usage:
     uv run python scripts/run_conversation.py
     uv run python scripts/run_conversation.py --turns 3
     uv run python scripts/run_conversation.py --no-synthesis
+    uv run python scripts/run_conversation.py --no-scoring
     uv run python scripts/run_conversation.py --synthesis-only <run-id>
+    uv run python scripts/run_conversation.py --score-only <concept-id>
     uv run python scripts/run_conversation.py \\
         --persona-a quantum_information_theorist \\
         --persona-b medieval_master_builder
@@ -27,12 +29,16 @@ import aiosqlite
 
 from src.config import settings
 from src.db.queries import (
+    Concept,
     ConceptCreate,
     RunCreate,
+    ScoreCreate,
     complete_run,
     create_concept,
     create_run,
+    create_score,
     fail_run,
+    get_concept_by_id,
     get_run_by_id,
     record_pairing,
 )
@@ -46,6 +52,7 @@ from src.personas.library import (
     get_persona_pair,
     get_random_shared_object,
 )
+from src.scoring.scorer import Scorer, ScoringError
 from src.synthesis.synthesizer import SynthesisError, Synthesizer
 
 logger = logging.getLogger(__name__)
@@ -102,6 +109,18 @@ def parse_args() -> argparse.Namespace:
         metavar="RUN_ID",
         help="Run synthesis on an existing completed run (skip conversation)",
     )
+    parser.add_argument(
+        "--no-scoring",
+        action="store_true",
+        help="Skip scoring after synthesis (default: scoring runs)",
+    )
+    parser.add_argument(
+        "--score-only",
+        type=str,
+        default=None,
+        metavar="CONCEPT_ID",
+        help="Score an existing concept (skip conversation and synthesis)",
+    )
     return parser.parse_args()
 
 
@@ -112,7 +131,7 @@ async def _run_synthesis(
     persona_a_name: str,
     persona_b_name: str,
     shared_object_text: str,
-) -> None:
+) -> Concept | None:
     """Run synthesis on a transcript and persist the extracted concept.
 
     Synthesis failure is logged but does not raise — the conversation
@@ -125,11 +144,14 @@ async def _run_synthesis(
         persona_a_name: Name of the first persona.
         persona_b_name: Name of the second persona.
         shared_object_text: The shared object that seeded the conversation.
+
+    Returns:
+        The created Concept if synthesis succeeds, None otherwise.
     """
     if not settings.openai_api_key:
         logger.warning("OPENAI_API_KEY not set — skipping synthesis")
         print("\n⚠ Synthesis skipped: OPENAI_API_KEY not configured")
-        return
+        return None
 
     print(f"\n{'─' * 60}")
     print("SYNTHESIS")
@@ -159,6 +181,8 @@ async def _run_synthesis(
         print(f"Originality: {concept.originality}")
         print(f"Concept ID:  {concept.id}")
 
+        return concept
+
     except SynthesisError as e:
         logger.error("Synthesis failed: %s", e)
         print(f"\n⚠ Synthesis failed: {e}")
@@ -167,6 +191,7 @@ async def _run_synthesis(
             f"  uv run python scripts/run_conversation.py"
             f" --synthesis-only {run_record_id}"
         )
+        return None
 
 
 async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
@@ -203,7 +228,7 @@ async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
     print(f"Persona B:  {run_record.persona_b_name}")
     print(f"{'=' * 60}")
 
-    await _run_synthesis(
+    concept = await _run_synthesis(
         db=db,
         run_record_id=run_record.id,
         transcript=run_record.transcript,
@@ -211,6 +236,94 @@ async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
         persona_b_name=run_record.persona_b_name,
         shared_object_text=run_record.shared_object_text,
     )
+
+    if concept is not None:
+        await _run_scoring(db=db, concept=concept)
+
+
+async def _run_scoring(
+    db: aiosqlite.Connection,
+    concept: Concept,
+) -> None:
+    """Score a concept and persist the evaluation.
+
+    Scoring failure is logged but does not raise — the concept is
+    already saved and scoring can be retried later.
+
+    Args:
+        db: Database connection.
+        concept: The concept to score.
+    """
+    if not settings.openai_api_key:
+        logger.warning("OPENAI_API_KEY not set — skipping scoring")
+        print("\n⚠ Scoring skipped: OPENAI_API_KEY not configured")
+        return
+
+    print(f"\n{'─' * 60}")
+    print("SCORING")
+    print(f"{'─' * 60}\n")
+
+    try:
+        scorer = Scorer()
+        result = await scorer.score(
+            title=concept.title,
+            premise=concept.premise,
+            originality=concept.originality,
+        )
+
+        await create_score(
+            db,
+            ScoreCreate(
+                concept_id=concept.id,
+                uniqueness_score=result.uniqueness.score,
+                uniqueness_reasoning=result.uniqueness.reasoning,
+                plausibility_score=result.plausibility.score,
+                plausibility_reasoning=result.plausibility.reasoning,
+                compelling_factor_score=result.compelling_factor.score,
+                compelling_factor_reasoning=result.compelling_factor.reasoning,
+            ),
+        )
+
+        print(f"Uniqueness:        {result.uniqueness.score}/10")
+        print(f"  → {result.uniqueness.reasoning}\n")
+        print(f"Plausibility:      {result.plausibility.score}/10")
+        print(f"  → {result.plausibility.reasoning}\n")
+        print(f"Compelling Factor: {result.compelling_factor.score}/10")
+        print(f"  → {result.compelling_factor.reasoning}")
+
+    except ScoringError as e:
+        logger.error("Scoring failed: %s", e)
+        print(f"\n⚠ Scoring failed: {e}")
+        print("The concept has been saved. You can retry with:")
+        print(f"  uv run python scripts/run_conversation.py --score-only {concept.id}")
+
+
+async def _score_only(db: aiosqlite.Connection, concept_id_str: str) -> None:
+    """Score an existing concept.
+
+    Args:
+        db: Database connection.
+        concept_id_str: String UUID of the concept to score.
+    """
+    try:
+        concept_id = UUID(concept_id_str)
+    except ValueError:
+        logger.error("Invalid concept ID: %s", concept_id_str)
+        sys.exit(1)
+
+    concept = await get_concept_by_id(db, concept_id)
+    if concept is None:
+        logger.error("Concept not found: %s", concept_id_str)
+        sys.exit(1)
+
+    print(f"\n{'=' * 60}")
+    print("MEDICI ENGINE — Score Only")
+    print(f"{'=' * 60}")
+    print(f"Concept ID: {concept.id}")
+    print(f"Title:      {concept.title}")
+    print(f"{'=' * 60}")
+
+    await _run_scoring(db=db, concept=concept)
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -236,6 +349,11 @@ async def run(args: argparse.Namespace) -> None:
     await init_schema(db)
 
     try:
+        # Handle score-only mode
+        if args.score_only:
+            await _score_only(db, args.score_only)
+            return
+
         # Handle synthesis-only mode
         if args.synthesis_only:
             await _synthesis_only(db, args.synthesis_only)
@@ -329,8 +447,9 @@ async def run(args: argparse.Namespace) -> None:
         print(f"{'=' * 60}")
 
         # Run synthesis unless explicitly disabled
+        concept = None
         if not args.no_synthesis:
-            await _run_synthesis(
+            concept = await _run_synthesis(
                 db=db,
                 run_record_id=run_record.id,
                 transcript=turns,
@@ -338,6 +457,10 @@ async def run(args: argparse.Namespace) -> None:
                 persona_b_name=persona_b.name,
                 shared_object_text=shared_object.text,
             )
+
+        # Run scoring if synthesis produced a concept
+        if concept is not None and not args.no_scoring:
+            await _run_scoring(db=db, concept=concept)
 
     except ConversationError as e:
         logger.error("Conversation failed: %s", e)
