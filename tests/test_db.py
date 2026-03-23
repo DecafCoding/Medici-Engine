@@ -3,21 +3,30 @@
 from uuid import UUID, uuid4
 
 from src.db.queries import (
+    BatchCreate,
     ConceptCreate,
     RunCreate,
     ScoreCreate,
     Turn,
+    complete_batch,
     complete_run,
+    create_batch,
     create_concept,
     create_run,
     create_score,
     fail_run,
+    get_batch_by_id,
+    get_batches,
     get_concept_by_run_id,
     get_concepts,
+    get_concepts_with_scores,
     get_recent_pairings,
     get_run_by_id,
     get_runs,
+    get_runs_by_batch_id,
     get_score_by_concept_id,
+    increment_batch_completed,
+    increment_batch_failed,
     record_pairing,
     update_concept_status,
 )
@@ -311,3 +320,250 @@ async def test_get_score_by_concept_id_returns_none_for_missing(db) -> None:
     """Verify None is returned for a nonexistent concept ID."""
     result = await get_score_by_concept_id(db, uuid4())
     assert result is None
+
+
+# ── Batch Query Tests ──────────────────────────────
+
+
+async def test_create_and_get_batch(db) -> None:
+    """Verify a batch can be created and retrieved by ID."""
+    batch = await create_batch(db, BatchCreate(total_runs=5))
+    assert isinstance(batch.id, UUID)
+    assert batch.total_runs == 5
+    assert batch.completed_runs == 0
+    assert batch.failed_runs == 0
+    assert batch.status == "running"
+    assert batch.completed_at is None
+
+    fetched = await get_batch_by_id(db, batch.id)
+    assert fetched is not None
+    assert fetched.id == batch.id
+
+
+async def test_get_batches(db) -> None:
+    """Verify recent batches can be listed."""
+    await create_batch(db, BatchCreate(total_runs=3))
+    await create_batch(db, BatchCreate(total_runs=5))
+    batches = await get_batches(db)
+    assert len(batches) == 2
+
+
+async def test_increment_batch_completed(db) -> None:
+    """Verify completed run count increments correctly."""
+    batch = await create_batch(db, BatchCreate(total_runs=3))
+    updated = await increment_batch_completed(db, batch.id)
+    assert updated.completed_runs == 1
+    updated2 = await increment_batch_completed(db, batch.id)
+    assert updated2.completed_runs == 2
+
+
+async def test_increment_batch_failed(db) -> None:
+    """Verify failed run count increments correctly."""
+    batch = await create_batch(db, BatchCreate(total_runs=3))
+    updated = await increment_batch_failed(db, batch.id)
+    assert updated.failed_runs == 1
+    updated2 = await increment_batch_failed(db, batch.id)
+    assert updated2.failed_runs == 2
+
+
+async def test_complete_batch_success(db) -> None:
+    """Verify batch completes with 'completed' status when runs succeed."""
+    batch = await create_batch(db, BatchCreate(total_runs=2))
+    await increment_batch_completed(db, batch.id)
+    await increment_batch_completed(db, batch.id)
+    completed = await complete_batch(db, batch.id)
+    assert completed.status == "completed"
+    assert completed.completed_at is not None
+
+
+async def test_complete_batch_all_failed(db) -> None:
+    """Verify batch completes with 'failed' status when all runs fail."""
+    batch = await create_batch(db, BatchCreate(total_runs=2))
+    await increment_batch_failed(db, batch.id)
+    await increment_batch_failed(db, batch.id)
+    completed = await complete_batch(db, batch.id)
+    assert completed.status == "failed"
+
+
+async def test_complete_batch_partial_success(db) -> None:
+    """Verify batch completes with 'completed' status on partial success."""
+    batch = await create_batch(db, BatchCreate(total_runs=3))
+    await increment_batch_completed(db, batch.id)
+    await increment_batch_failed(db, batch.id)
+    completed = await complete_batch(db, batch.id)
+    assert completed.status == "completed"
+
+
+async def test_create_run_with_batch_id(db) -> None:
+    """Verify a run can be created with a batch association."""
+    batch = await create_batch(db, BatchCreate(total_runs=1))
+    run = await create_run(
+        db,
+        RunCreate(
+            persona_a_name="physicist",
+            persona_b_name="builder",
+            shared_object_text="A test scenario",
+            batch_id=batch.id,
+        ),
+    )
+    assert run.batch_id == batch.id
+
+
+async def test_create_run_without_batch_id(db) -> None:
+    """Verify a run created without batch_id has None."""
+    run = await create_run(
+        db,
+        RunCreate(
+            persona_a_name="physicist",
+            persona_b_name="builder",
+            shared_object_text="A test scenario",
+        ),
+    )
+    assert run.batch_id is None
+
+
+async def test_get_runs_by_batch_id(db) -> None:
+    """Verify runs can be fetched by their batch association."""
+    batch = await create_batch(db, BatchCreate(total_runs=2))
+    await create_run(
+        db,
+        RunCreate(
+            persona_a_name="a",
+            persona_b_name="b",
+            shared_object_text="test1",
+            batch_id=batch.id,
+        ),
+    )
+    await create_run(
+        db,
+        RunCreate(
+            persona_a_name="c",
+            persona_b_name="d",
+            shared_object_text="test2",
+            batch_id=batch.id,
+        ),
+    )
+    # Create a run without batch to verify filtering
+    await create_run(
+        db,
+        RunCreate(
+            persona_a_name="e",
+            persona_b_name="f",
+            shared_object_text="test3",
+        ),
+    )
+    runs = await get_runs_by_batch_id(db, batch.id)
+    assert len(runs) == 2
+
+
+# ── Concept + Score Join Query Tests ──────────────
+
+
+async def test_get_concepts_with_scores(db) -> None:
+    """Verify the join query returns concept data with scores attached."""
+    run = await _create_test_run(db)
+    concept = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="Test Concept",
+            premise="Test premise.",
+            originality="Test originality.",
+        ),
+    )
+    await create_score(
+        db,
+        ScoreCreate(
+            concept_id=concept.id,
+            uniqueness_score=8.0,
+            uniqueness_reasoning="Novel.",
+            plausibility_score=6.0,
+            plausibility_reasoning="Plausible.",
+            compelling_factor_score=7.0,
+            compelling_factor_reasoning="Compelling.",
+        ),
+    )
+    results = await get_concepts_with_scores(db)
+    assert len(results) == 1
+    result = results[0]
+    assert result.title == "Test Concept"
+    assert result.uniqueness_score == 8.0
+    assert result.plausibility_score == 6.0
+    assert result.compelling_factor_score == 7.0
+    assert result.overall_score == 7.0
+
+
+async def test_get_concepts_with_scores_no_score(db) -> None:
+    """Verify concepts without scores have NULL score fields."""
+    run = await _create_test_run(db)
+    await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run.id,
+            title="Unscored Concept",
+            premise="Test premise.",
+            originality="Test originality.",
+        ),
+    )
+    results = await get_concepts_with_scores(db)
+    assert len(results) == 1
+    assert results[0].uniqueness_score is None
+    assert results[0].overall_score is None
+
+
+async def test_get_concepts_with_scores_sort_by_score(db) -> None:
+    """Verify concepts can be sorted by overall score descending."""
+    run1 = await _create_test_run(db)
+    concept1 = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run1.id,
+            title="Low Score",
+            premise="p",
+            originality="o",
+        ),
+    )
+    await create_score(
+        db,
+        ScoreCreate(
+            concept_id=concept1.id,
+            uniqueness_score=3.0,
+            uniqueness_reasoning="r",
+            plausibility_score=3.0,
+            plausibility_reasoning="r",
+            compelling_factor_score=3.0,
+            compelling_factor_reasoning="r",
+        ),
+    )
+
+    run2 = await _create_test_run(db)
+    concept2 = await create_concept(
+        db,
+        ConceptCreate(
+            run_id=run2.id,
+            title="High Score",
+            premise="p",
+            originality="o",
+        ),
+    )
+    await create_score(
+        db,
+        ScoreCreate(
+            concept_id=concept2.id,
+            uniqueness_score=9.0,
+            uniqueness_reasoning="r",
+            plausibility_score=9.0,
+            plausibility_reasoning="r",
+            compelling_factor_score=9.0,
+            compelling_factor_reasoning="r",
+        ),
+    )
+
+    results = await get_concepts_with_scores(db, sort_by="score_desc")
+    assert len(results) == 2
+    assert results[0].title == "High Score"
+    assert results[1].title == "Low Score"
+
+    results_asc = await get_concepts_with_scores(db, sort_by="score_asc")
+    assert results_asc[0].title == "Low Score"
+    assert results_asc[1].title == "High Score"

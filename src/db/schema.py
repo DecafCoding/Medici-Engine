@@ -13,6 +13,18 @@ import aiosqlite
 logger = logging.getLogger(__name__)
 
 SCHEMA_SQL = """\
+CREATE TABLE IF NOT EXISTS batches (
+    id TEXT PRIMARY KEY,
+    total_runs INTEGER NOT NULL,
+    completed_runs INTEGER NOT NULL DEFAULT 0,
+    failed_runs INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'running',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_batches_status ON batches(status);
+
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY,
     persona_a_name TEXT NOT NULL,
@@ -23,9 +35,14 @@ CREATE TABLE IF NOT EXISTS runs (
     transcript_json TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     error_message TEXT,
+    batch_id TEXT REFERENCES batches(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at TEXT
 );
+
+-- NOTE: batch_id added in Milestone 2. Existing databases created before this
+-- change won't have the column (CREATE TABLE IF NOT EXISTS won't alter them).
+-- Pre-v1.0, users can delete data/yield_engine.db to recreate.
 
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at);
