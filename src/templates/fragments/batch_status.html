@@ -1,0 +1,19 @@
+{% if batch.status == "running" %}
+<div class="batch-status"
+     hx-get="/ui/batch/{{ batch.id }}/status"
+     hx-trigger="every 3s"
+     hx-swap="outerHTML">
+    <p>
+        Batch <strong>{{ batch.id }}</strong>: {{ batch.completed_runs }}/{{ batch.total_runs }} completed, {{ batch.failed_runs }} failed
+    </p>
+    <p>Status: <em>running</em></p>
+</div>
+{% else %}
+<div class="batch-status">
+    <p>
+        Batch <strong>{{ batch.id }}</strong>: {{ batch.completed_runs }}/{{ batch.total_runs }} completed, {{ batch.failed_runs }} failed
+    </p>
+    <p>Status: <strong>{{ batch.status }}</strong></p>
+    <p><a href="/ui/review">View Results</a></p>
+</div>
+{% endif %}

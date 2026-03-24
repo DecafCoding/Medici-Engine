@@ -13,10 +13,12 @@ from pathlib import Path
 
 import aiosqlite
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import router
+from src.api.routes import router as api_router
 from src.config import settings
 from src.db.schema import init_schema
+from src.ui.routes import router as ui_router
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(router)
+app.include_router(api_router)
+app.include_router(ui_router)
+
+# Serve static files (CSS, JS)
+app.mount(
+    "/static",
+    StaticFiles(directory=str(Path(__file__).resolve().parent / "static")),
+    name="static",
+)
 
 
 @app.get("/health")
