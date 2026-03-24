@@ -72,9 +72,9 @@ class Concept(BaseModel):
 
     id: UUID
     run_id: UUID
+    domain: str
     title: str
-    premise: str
-    originality: str
+    fields: dict[str, str]
     status: str = Field(default="pending", description="pending | kept | discarded")
     created_at: str
 
@@ -83,9 +83,18 @@ class ConceptCreate(BaseModel):
     """Input model for creating a new concept."""
 
     run_id: UUID
+    domain: str
     title: str
-    premise: str
-    originality: str
+    fields: dict[str, str]
+
+
+class AxisScoreRecord(BaseModel):
+    """A single axis score with reasoning, stored as part of a Score."""
+
+    axis: str
+    label: str
+    score: float
+    reasoning: str
 
 
 class Score(BaseModel):
@@ -93,12 +102,8 @@ class Score(BaseModel):
 
     id: UUID
     concept_id: UUID
-    uniqueness_score: float
-    uniqueness_reasoning: str
-    plausibility_score: float
-    plausibility_reasoning: str
-    compelling_factor_score: float
-    compelling_factor_reasoning: str
+    axes: list[AxisScoreRecord]
+    overall_score: float | None
     created_at: str
 
 
@@ -106,12 +111,7 @@ class ScoreCreate(BaseModel):
     """Input model for creating a new score."""
 
     concept_id: UUID
-    uniqueness_score: float
-    uniqueness_reasoning: str
-    plausibility_score: float
-    plausibility_reasoning: str
-    compelling_factor_score: float
-    compelling_factor_reasoning: str
+    axes: list[AxisScoreRecord]
 
 
 class Batch(BaseModel):
@@ -137,14 +137,11 @@ class ConceptWithScore(BaseModel):
 
     id: UUID
     run_id: UUID
+    domain: str
     title: str
-    premise: str
-    originality: str
+    fields: dict[str, str]
     status: str
     created_at: str
-    uniqueness_score: float | None = None
-    plausibility_score: float | None = None
-    compelling_factor_score: float | None = None
     overall_score: float | None = None
 
 
@@ -178,9 +175,9 @@ def _row_to_concept(row: aiosqlite.Row) -> Concept:
     return Concept(
         id=UUID(row["id"]),
         run_id=UUID(row["run_id"]),
+        domain=row["domain"],
         title=row["title"],
-        premise=row["premise"],
-        originality=row["originality"],
+        fields=json.loads(row["fields_json"]),
         status=row["status"],
         created_at=row["created_at"],
     )
@@ -201,40 +198,26 @@ def _row_to_batch(row: aiosqlite.Row) -> Batch:
 
 def _row_to_concept_with_score(row: aiosqlite.Row) -> ConceptWithScore:
     """Map a joined concept+score row to a ConceptWithScore model."""
-    uniqueness = row["uniqueness_score"]
-    plausibility = row["plausibility_score"]
-    compelling = row["compelling_factor_score"]
-
-    overall = None
-    if uniqueness is not None and plausibility is not None and compelling is not None:
-        overall = round((uniqueness + plausibility + compelling) / 3.0, 2)
-
     return ConceptWithScore(
         id=UUID(row["id"]),
         run_id=UUID(row["run_id"]),
+        domain=row["domain"],
         title=row["title"],
-        premise=row["premise"],
-        originality=row["originality"],
+        fields=json.loads(row["fields_json"]),
         status=row["status"],
         created_at=row["created_at"],
-        uniqueness_score=uniqueness,
-        plausibility_score=plausibility,
-        compelling_factor_score=compelling,
-        overall_score=overall,
+        overall_score=row["overall_score"],
     )
 
 
 def _row_to_score(row: aiosqlite.Row) -> Score:
     """Map a database row to a Score model."""
+    axes = [AxisScoreRecord(**a) for a in json.loads(row["axes_json"])]
     return Score(
         id=UUID(row["id"]),
         concept_id=UUID(row["concept_id"]),
-        uniqueness_score=row["uniqueness_score"],
-        uniqueness_reasoning=row["uniqueness_reasoning"],
-        plausibility_score=row["plausibility_score"],
-        plausibility_reasoning=row["plausibility_reasoning"],
-        compelling_factor_score=row["compelling_factor_score"],
-        compelling_factor_reasoning=row["compelling_factor_reasoning"],
+        axes=axes,
+        overall_score=row["overall_score"],
         created_at=row["created_at"],
     )
 
@@ -386,15 +369,16 @@ async def get_recent_pairings(
 async def create_concept(db: aiosqlite.Connection, concept: ConceptCreate) -> Concept:
     """Insert a new concept record and return the hydrated model."""
     concept_id = str(uuid4())
+    fields_json = json.dumps(concept.fields)
     await db.execute(
-        "INSERT INTO concepts (id, run_id, title, premise, originality) "
+        "INSERT INTO concepts (id, run_id, domain, title, fields_json) "
         "VALUES (?, ?, ?, ?, ?)",
         (
             concept_id,
             str(concept.run_id),
+            concept.domain,
             concept.title,
-            concept.premise,
-            concept.originality,
+            fields_json,
         ),
     )
     await db.commit()
@@ -469,19 +453,20 @@ async def update_concept_status(
 async def create_score(db: aiosqlite.Connection, score: ScoreCreate) -> Score:
     """Insert a new score record and return the hydrated model."""
     score_id = str(uuid4())
+    axes_json = json.dumps([a.model_dump() for a in score.axes])
+    overall = (
+        round(sum(a.score for a in score.axes) / len(score.axes), 2)
+        if score.axes
+        else None
+    )
     await db.execute(
-        "INSERT INTO scores (id, concept_id, uniqueness_score, uniqueness_reasoning, "
-        "plausibility_score, plausibility_reasoning, compelling_factor_score, "
-        "compelling_factor_reasoning) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO scores (id, concept_id, axes_json, overall_score) "
+        "VALUES (?, ?, ?, ?)",
         (
             score_id,
             str(score.concept_id),
-            score.uniqueness_score,
-            score.uniqueness_reasoning,
-            score.plausibility_score,
-            score.plausibility_reasoning,
-            score.compelling_factor_score,
-            score.compelling_factor_reasoning,
+            axes_json,
+            overall,
         ),
     )
     await db.commit()
@@ -652,8 +637,7 @@ async def get_concepts_with_scores(
         List of concepts with their score data attached.
     """
     base_query = (
-        "SELECT c.*, s.uniqueness_score, s.plausibility_score, "
-        "s.compelling_factor_score "
+        "SELECT c.*, s.overall_score "
         "FROM concepts c "
         "LEFT JOIN scores s ON s.concept_id = c.id"
     )
@@ -665,16 +649,8 @@ async def get_concepts_with_scores(
 
     # Sort order with NULLs last for score-based sorting
     order_clauses = {
-        "score_desc": (
-            "ORDER BY (s.uniqueness_score IS NULL), "
-            "(s.uniqueness_score + s.plausibility_score "
-            "+ s.compelling_factor_score) / 3.0 DESC"
-        ),
-        "score_asc": (
-            "ORDER BY (s.uniqueness_score IS NULL), "
-            "(s.uniqueness_score + s.plausibility_score "
-            "+ s.compelling_factor_score) / 3.0 ASC"
-        ),
+        "score_desc": "ORDER BY (s.overall_score IS NULL), s.overall_score DESC",
+        "score_asc": "ORDER BY (s.overall_score IS NULL), s.overall_score ASC",
         "date_desc": "ORDER BY c.created_at DESC",
         "date_asc": "ORDER BY c.created_at ASC",
     }

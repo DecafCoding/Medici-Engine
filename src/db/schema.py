@@ -59,12 +59,14 @@ CREATE TABLE IF NOT EXISTS pairing_history (
 CREATE INDEX IF NOT EXISTS idx_pairing_history_personas
     ON pairing_history(persona_a_name, persona_b_name);
 
+-- BREAKING CHANGE: concepts and scores tables now use JSON storage for
+-- domain-agnostic fields. Delete data/yield_engine.db to recreate.
 CREATE TABLE IF NOT EXISTS concepts (
     id TEXT PRIMARY KEY,
     run_id TEXT NOT NULL,
+    domain TEXT NOT NULL,
     title TEXT NOT NULL,
-    premise TEXT NOT NULL,
-    originality TEXT NOT NULL,
+    fields_json TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (run_id) REFERENCES runs(id)
@@ -76,12 +78,8 @@ CREATE INDEX IF NOT EXISTS idx_concepts_status ON concepts(status);
 CREATE TABLE IF NOT EXISTS scores (
     id TEXT PRIMARY KEY,
     concept_id TEXT NOT NULL UNIQUE,
-    uniqueness_score REAL NOT NULL,
-    uniqueness_reasoning TEXT NOT NULL,
-    plausibility_score REAL NOT NULL,
-    plausibility_reasoning TEXT NOT NULL,
-    compelling_factor_score REAL NOT NULL,
-    compelling_factor_reasoning TEXT NOT NULL,
+    axes_json TEXT NOT NULL,
+    overall_score REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (concept_id) REFERENCES concepts(id)
 );
