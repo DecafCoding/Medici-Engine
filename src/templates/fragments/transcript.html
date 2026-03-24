@@ -1,0 +1,12 @@
+{% if transcript %}
+<div class="transcript-content">
+    {% for turn in transcript %}
+    <div class="transcript-turn">
+        <span class="transcript-speaker">[Turn {{ turn.turn_number }}] {{ turn.persona_name }}:</span>
+        <p>{{ turn.content }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No transcript available.</p>
+{% endif %}

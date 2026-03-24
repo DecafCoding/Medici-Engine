@@ -1,0 +1,13 @@
+{% if concepts %}
+{% for c in concepts %}
+<tr>
+    <td><a href="/ui/review/{{ c.id }}">{{ c.title }}</a></td>
+    <td>{{ c.premise[:100] }}{% if c.premise|length > 100 %}...{% endif %}</td>
+    <td>{% if c.overall_score is not none %}{{ "%.1f"|format(c.overall_score) }}{% else %}&mdash;{% endif %}</td>
+    <td>{% with concept=c %}{% include "fragments/concept_status.html" %}{% endwith %}</td>
+    <td>{{ c.created_at[:10] }}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="5">No concepts found.</td></tr>
+{% endif %}
