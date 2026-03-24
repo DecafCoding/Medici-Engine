@@ -27,6 +27,7 @@ from src.db.queries import (
     get_score_by_concept_id,
     update_concept_status,
 )
+from src.domains.registry import get_active_domain
 from src.personas.library import get_all_personas, get_all_shared_objects
 
 logger = logging.getLogger(__name__)
@@ -139,6 +140,7 @@ async def review_list(
     concepts = await get_concepts_with_scores(
         db, status=status, sort_by=sort, limit=limit
     )
+    domain = get_active_domain()
     return templates.TemplateResponse(
         "review.html",
         {
@@ -146,6 +148,7 @@ async def review_list(
             "concepts": concepts,
             "current_status": status,
             "current_sort": sort,
+            "domain": domain,
         },
     )
 
@@ -179,18 +182,7 @@ async def review_detail(request: Request, concept_id: UUID):
 
     score = await get_score_by_concept_id(db, concept_id)
     run = await get_run_by_id(db, concept.run_id)
-
-    overall_score = None
-    if score is not None:
-        overall_score = round(
-            (
-                score.uniqueness_score
-                + score.plausibility_score
-                + score.compelling_factor_score
-            )
-            / 3.0,
-            1,
-        )
+    domain = get_active_domain()
 
     return templates.TemplateResponse(
         "detail.html",
@@ -199,7 +191,7 @@ async def review_detail(request: Request, concept_id: UUID):
             "concept": concept,
             "score": score,
             "run": run,
-            "overall_score": overall_score,
+            "domain": domain,
         },
     )
 
