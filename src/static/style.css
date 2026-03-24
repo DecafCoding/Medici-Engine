@@ -324,3 +324,63 @@ button.secondary:hover {
 .form-row > * {
     flex: 1;
 }
+
+/* ── Cards ────────────────────────────────────────── */
+
+.card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 1.5rem;
+}
+
+.card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 0.75rem;
+}
+
+.card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.3rem;
+}
+
+/* ── Score Cards ──────────────────────────────────── */
+
+.score-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.score-card {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.score-card h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ── Filter Controls ──────────────────────────────── */
+
+.filter-controls {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 0;
+}
+
+.filter-controls select {
+    margin-bottom: 0;
+}

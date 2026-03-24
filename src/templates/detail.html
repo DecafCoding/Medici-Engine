@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{{ concept.title }} — Medici Engine{% endblock %}
+
+{% block heading %}{{ concept.title }}{% endblock %}
+
+{% block content %}
+<p class="mb-2"><a href="/ui/review">&larr; Back to Review</a></p>
+
+<section class="card mb-2">
+    <div class="flex mb-1">
+        <span id="status-badge">{% include "fragments/concept_status.html" %}</span>
+        <button hx-patch="/ui/review/{{ concept.id }}/status"
+                hx-vals='{"status": "kept"}'
+                hx-target="#status-badge"
+                hx-swap="innerHTML">Keep</button>
+        <button class="secondary"
+                hx-patch="/ui/review/{{ concept.id }}/status"
+                hx-vals='{"status": "discarded"}'
+                hx-target="#status-badge"
+                hx-swap="innerHTML">Discard</button>
+    </div>
+
+    <h3>Premise</h3>
+    <p>{{ concept.premise }}</p>
+
+    <h3 class="mt-2">Originality</h3>
+    <p>{{ concept.originality }}</p>
+</section>
+
+<section class="card mb-2">
+    <h2>Scores</h2>
+    {% if score %}
+    <p class="mb-1"><strong>Overall:</strong> <span class="score {% if overall_score >= 7 %}score-high{% elif overall_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(overall_score) }}</span> / 10</p>
+
+    <div class="score-cards">
+        <div class="score-card">
+            <h4>Uniqueness <span class="score {% if score.uniqueness_score >= 7 %}score-high{% elif score.uniqueness_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.uniqueness_score) }}</span></h4>
+            <p class="text-sm">{{ score.uniqueness_reasoning }}</p>
+        </div>
+        <div class="score-card">
+            <h4>Plausibility <span class="score {% if score.plausibility_score >= 7 %}score-high{% elif score.plausibility_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.plausibility_score) }}</span></h4>
+            <p class="text-sm">{{ score.plausibility_reasoning }}</p>
+        </div>
+        <div class="score-card">
+            <h4>Compelling Factor <span class="score {% if score.compelling_factor_score >= 7 %}score-high{% elif score.compelling_factor_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.compelling_factor_score) }}</span></h4>
+            <p class="text-sm">{{ score.compelling_factor_reasoning }}</p>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted">Not yet scored.</p>
+    {% endif %}
+</section>
+
+<section class="card mb-2">
+    <h2>Run Info</h2>
+    {% if run %}
+    <p><strong>Persona A:</strong> {{ run.persona_a_name }}</p>
+    <p><strong>Persona B:</strong> {{ run.persona_b_name }}</p>
+    <p><strong>Shared Object:</strong> {{ run.shared_object_text }}</p>
+    {% else %}
+    <p class="text-muted">Run data not available.</p>
+    {% endif %}
+</section>
+
+<section class="transcript-drawer">
+    <details>
+        <summary class="transcript-toggle">View Transcript</summary>
+        <div hx-get="/ui/review/{{ concept.id }}/transcript"
+             hx-trigger="toggle once from:closest details"
+             hx-swap="innerHTML">
+            <p class="text-muted" style="padding: 1rem;">Loading transcript...</p>
+        </div>
+    </details>
+</section>
+{% endblock %}

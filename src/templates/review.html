@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Review — Medici Engine{% endblock %}
+
+{% block heading %}Review{% endblock %}
+
+{% block content %}
+<div class="filter-controls form-row">
+    <div>
+        <label for="status-filter">Status</label>
+        <select name="status" id="status-filter"
+                hx-get="/ui/review/rows"
+                hx-target="#concept-table-body"
+                hx-include="[name='sort']">
+            <option value="" {% if not current_status %}selected{% endif %}>All</option>
+            <option value="pending" {% if current_status == "pending" %}selected{% endif %}>Pending</option>
+            <option value="kept" {% if current_status == "kept" %}selected{% endif %}>Kept</option>
+            <option value="discarded" {% if current_status == "discarded" %}selected{% endif %}>Discarded</option>
+        </select>
+    </div>
+    <div>
+        <label for="sort-select">Sort</label>
+        <select name="sort" id="sort-select"
+                hx-get="/ui/review/rows"
+                hx-target="#concept-table-body"
+                hx-include="[name='status']">
+            <option value="date_desc" {% if current_sort == "date_desc" %}selected{% endif %}>Newest First</option>
+            <option value="date_asc" {% if current_sort == "date_asc" %}selected{% endif %}>Oldest First</option>
+            <option value="score_desc" {% if current_sort == "score_desc" %}selected{% endif %}>Highest Score</option>
+            <option value="score_asc" {% if current_sort == "score_asc" %}selected{% endif %}>Lowest Score</option>
+        </select>
+    </div>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Premise</th>
+            <th>Score</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody id="concept-table-body">
+        {% include "fragments/concept_rows.html" %}
+    </tbody>
+</table>
+{% endblock %}

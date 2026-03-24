@@ -13,6 +13,7 @@ from pathlib import Path
 
 import aiosqlite
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import router as api_router
@@ -75,6 +76,12 @@ app.mount(
     StaticFiles(directory=str(Path(__file__).resolve().parent / "static")),
     name="static",
 )
+
+
+@app.get("/")
+async def root() -> RedirectResponse:
+    """Redirect root to the review UI."""
+    return RedirectResponse(url="/ui/review")
 
 
 @app.get("/health")

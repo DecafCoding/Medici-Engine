@@ -12,11 +12,21 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from src.batch.models import BatchRequest
 from src.batch.runner import BatchRunner
-from src.db.queries import BatchCreate, create_batch, get_batch_by_id
+from src.db.queries import (
+    BatchCreate,
+    create_batch,
+    get_batch_by_id,
+    get_concept_by_id,
+    get_concepts_with_scores,
+    get_run_by_id,
+    get_score_by_concept_id,
+    update_concept_status,
+)
 from src.personas.library import get_all_personas, get_all_shared_objects
 
 logger = logging.getLogger(__name__)
@@ -111,4 +121,116 @@ async def batch_status(request: Request, batch_id: UUID):
     return templates.TemplateResponse(
         "fragments/batch_status.html",
         {"request": request, "batch": batch},
+    )
+
+
+# ── Review Endpoints ─────────────────────────────────
+
+
+@router.get("/review")
+async def review_list(
+    request: Request,
+    status: str | None = None,
+    sort: str = "date_desc",
+    limit: int = 50,
+):
+    """Render the concept review list with filter and sort controls."""
+    db = request.app.state.db
+    concepts = await get_concepts_with_scores(
+        db, status=status, sort_by=sort, limit=limit
+    )
+    return templates.TemplateResponse(
+        "review.html",
+        {
+            "request": request,
+            "concepts": concepts,
+            "current_status": status,
+            "current_sort": sort,
+        },
+    )
+
+
+@router.get("/review/rows")
+async def review_rows(
+    request: Request,
+    status: str | None = None,
+    sort: str = "date_desc",
+    limit: int = 50,
+):
+    """Return the concept table body fragment for HTMX swap."""
+    db = request.app.state.db
+    concepts = await get_concepts_with_scores(
+        db, status=status, sort_by=sort, limit=limit
+    )
+    return templates.TemplateResponse(
+        "fragments/concept_rows.html",
+        {"request": request, "concepts": concepts},
+    )
+
+
+@router.get("/review/{concept_id}")
+async def review_detail(request: Request, concept_id: UUID):
+    """Render the concept detail page with scores and run info."""
+    db = request.app.state.db
+
+    concept = await get_concept_by_id(db, concept_id)
+    if concept is None:
+        return HTMLResponse("Concept not found", status_code=404)
+
+    score = await get_score_by_concept_id(db, concept_id)
+    run = await get_run_by_id(db, concept.run_id)
+
+    overall_score = None
+    if score is not None:
+        overall_score = round(
+            (
+                score.uniqueness_score
+                + score.plausibility_score
+                + score.compelling_factor_score
+            )
+            / 3.0,
+            1,
+        )
+
+    return templates.TemplateResponse(
+        "detail.html",
+        {
+            "request": request,
+            "concept": concept,
+            "score": score,
+            "run": run,
+            "overall_score": overall_score,
+        },
+    )
+
+
+@router.get("/review/{concept_id}/transcript")
+async def review_transcript(request: Request, concept_id: UUID):
+    """Return the transcript fragment for lazy loading via HTMX."""
+    db = request.app.state.db
+
+    concept = await get_concept_by_id(db, concept_id)
+    if concept is None:
+        return HTMLResponse("Concept not found", status_code=404)
+
+    run = await get_run_by_id(db, concept.run_id)
+    transcript = run.transcript if run else None
+
+    return templates.TemplateResponse(
+        "fragments/transcript.html",
+        {"request": request, "transcript": transcript, "run": run},
+    )
+
+
+@router.patch("/review/{concept_id}/status")
+async def review_toggle_status(request: Request, concept_id: UUID):
+    """Toggle a concept's review status and return the updated badge."""
+    db = request.app.state.db
+    form = await request.form()
+    status = str(form.get("status", "pending"))
+
+    updated = await update_concept_status(db, concept_id, status)
+    return templates.TemplateResponse(
+        "fragments/concept_status.html",
+        {"request": request, "concept": updated},
     )
