@@ -21,31 +21,26 @@
                 hx-swap="innerHTML">Discard</button>
     </div>
 
-    <h3>Premise</h3>
-    <p>{{ concept.premise }}</p>
-
-    <h3 class="mt-2">Originality</h3>
-    <p>{{ concept.originality }}</p>
+    {% for field in domain.extraction_fields %}
+    {% if field.name != domain.primary_field %}
+    <h3 class="{% if not loop.first %}mt-2{% endif %}">{{ field.label }}</h3>
+    <p>{{ concept.fields[field.name] }}</p>
+    {% endif %}
+    {% endfor %}
 </section>
 
 <section class="card mb-2">
     <h2>Scores</h2>
     {% if score %}
-    <p class="mb-1"><strong>Overall:</strong> <span class="score {% if overall_score >= 7 %}score-high{% elif overall_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(overall_score) }}</span> / 10</p>
+    <p class="mb-1"><strong>Overall:</strong> <span class="score {% if score.overall_score >= 7 %}score-high{% elif score.overall_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.overall_score) }}</span> / 10</p>
 
     <div class="score-cards">
+        {% for axis_score in score.axes %}
         <div class="score-card">
-            <h4>Uniqueness <span class="score {% if score.uniqueness_score >= 7 %}score-high{% elif score.uniqueness_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.uniqueness_score) }}</span></h4>
-            <p class="text-sm">{{ score.uniqueness_reasoning }}</p>
+            <h4>{{ axis_score.label }} <span class="score {% if axis_score.score >= 7 %}score-high{% elif axis_score.score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(axis_score.score) }}</span></h4>
+            <p class="text-sm">{{ axis_score.reasoning }}</p>
         </div>
-        <div class="score-card">
-            <h4>Plausibility <span class="score {% if score.plausibility_score >= 7 %}score-high{% elif score.plausibility_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.plausibility_score) }}</span></h4>
-            <p class="text-sm">{{ score.plausibility_reasoning }}</p>
-        </div>
-        <div class="score-card">
-            <h4>Compelling Factor <span class="score {% if score.compelling_factor_score >= 7 %}score-high{% elif score.compelling_factor_score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(score.compelling_factor_score) }}</span></h4>
-            <p class="text-sm">{{ score.compelling_factor_reasoning }}</p>
-        </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-muted">Not yet scored.</p>

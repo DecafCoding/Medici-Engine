@@ -2,7 +2,13 @@
 {% for c in concepts %}
 <tr>
     <td><a href="/ui/review/{{ c.id }}">{{ c.title }}</a></td>
-    <td>{{ c.premise[:100] }}{% if c.premise|length > 100 %}...{% endif %}</td>
+    {% set field_values = c.fields.values()|list %}
+    {% if field_values|length > 1 %}
+    {% set summary = field_values[1] %}
+    <td>{{ summary[:100] }}{% if summary|length > 100 %}...{% endif %}</td>
+    {% else %}
+    <td>&mdash;</td>
+    {% endif %}
     <td>{% if c.overall_score is not none %}{{ "%.1f"|format(c.overall_score) }}{% else %}&mdash;{% endif %}</td>
     <td>{% with concept=c %}{% include "fragments/concept_status.html" %}{% endwith %}</td>
     <td>{{ c.created_at[:10] }}</td>
