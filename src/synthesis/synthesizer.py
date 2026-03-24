@@ -20,43 +20,9 @@ from openai import (
 
 from src.config import settings
 from src.db.queries import Turn
-from src.synthesis.models import ConceptExtraction
+from src.domains.models import DomainConfig, create_extraction_model
 
 logger = logging.getLogger(__name__)
-
-SYNTHESIS_PROMPT = """\
-You are the synthesizer for the Medici Engine — a system that collides radically \
-different worldviews to surface novel ideas.
-
-You will receive a conversation transcript between two persona agents who were given \
-a shared object to react to. The personas come from completely different domains and \
-epistemologies. Your job is NOT to summarize the conversation. Your job is to mine it \
-for the novel idea that lives in the gap between the two perspectives.
-
-Look for:
-- **Transferable principles**: A concept from one domain that maps structurally onto \
-the other domain in a way neither participant recognized.
-- **Unexpected reframings**: Moments where one persona's description accidentally \
-redefines the other's problem — bypassing assumptions the expert didn't know they had.
-- **Novel compound concepts**: Ideas that exist in neither domain alone but emerge \
-from their intersection — concepts that have no name yet because they required both \
-lenses to see.
-
-Focus on the productive friction — the points where the two personas fundamentally \
-talked past each other in interesting ways. Agreement is less valuable than creative \
-misunderstanding.
-
-Extract a single sci-fi book concept from this collision:
-- **Title**: A working title that captures the core idea. Evocative, not generic.
-- **Premise**: The central concept — the idea so structurally original it could anchor \
-a book. Not a plot summary. Not characters. The idea itself.
-- **Originality**: What makes this concept genuinely novel — why it could not have \
-come from either domain alone, and what assumption it breaks.
-
-The concept must stand on its own — readable and compelling without needing \
-to read the transcript. Do not reference the personas or the conversation \
-directly in the output.\
-"""
 
 
 class SynthesisError(Exception):
@@ -73,10 +39,16 @@ class Synthesizer:
     Reads the full transcript of a persona collision, identifies the
     most interesting friction points, and distills them into a single
     structured concept via the OpenAI API with structured output.
+    The extraction fields and prompt are driven by the domain config.
     """
 
-    def __init__(self) -> None:
-        """Initialize the synthesizer with an OpenAI API client."""
+    def __init__(self, domain: DomainConfig) -> None:
+        """Initialize the synthesizer with a domain config and OpenAI client.
+
+        Args:
+            domain: Domain configuration defining extraction fields and prompt.
+        """
+        self._domain = domain
         self._client = AsyncOpenAI(
             api_key=settings.openai_api_key,
             timeout=httpx.Timeout(60.0, connect=5.0),
@@ -89,7 +61,7 @@ class Synthesizer:
         persona_a_name: str,
         persona_b_name: str,
         shared_object_text: str,
-    ) -> ConceptExtraction:
+    ) -> dict[str, str]:
         """Extract a structured concept from a conversation transcript.
 
         Args:
@@ -99,7 +71,7 @@ class Synthesizer:
             shared_object_text: The shared object that seeded the conversation.
 
         Returns:
-            A structured concept extraction with title, premise, and originality.
+            A dict mapping extraction field names to their values.
 
         Raises:
             SynthesisError: If synthesis cannot be completed.
@@ -111,6 +83,7 @@ class Synthesizer:
                 "persona_a": persona_a_name,
                 "persona_b": persona_b_name,
                 "turn_count": len(transcript),
+                "domain": self._domain.name,
             },
         )
 
@@ -122,11 +95,14 @@ class Synthesizer:
             shared_object_text=shared_object_text,
         )
 
+        # Build the response_format model dynamically from domain config
+        extraction_model = create_extraction_model(self._domain)
+
         try:
             response = await self._client.beta.chat.completions.parse(
                 model=settings.synthesis_model,
                 messages=messages,
-                response_format=ConceptExtraction,
+                response_format=extraction_model,
                 temperature=0.4,
             )
         except APIConnectionError as e:
@@ -143,16 +119,20 @@ class Synthesizer:
             refusal = response.choices[0].message.refusal
             raise ExtractionError(f"Model refused to extract concept: {refusal}")
 
+        # Convert the dynamic model to a plain dict of field values
+        extraction = result.model_dump()
+
         logger.info(
             "Concept extracted",
             extra={
-                "title": result.title,
+                "title": extraction.get(self._domain.primary_field, ""),
                 "persona_a": persona_a_name,
                 "persona_b": persona_b_name,
+                "domain": self._domain.name,
             },
         )
 
-        return result
+        return extraction
 
     def _format_transcript(self, transcript: list[Turn]) -> str:
         """Convert a list of turns into a readable transcript string."""
@@ -189,6 +169,6 @@ class Synthesizer:
         )
 
         return [
-            {"role": "system", "content": SYNTHESIS_PROMPT},
+            {"role": "system", "content": self._domain.synthesis_prompt},
             {"role": "user", "content": user_content},
         ]

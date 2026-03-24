@@ -9,6 +9,8 @@ results. This is the primary interface for Features 1-4.
 Usage:
     uv run python scripts/run_conversation.py
     uv run python scripts/run_conversation.py --turns 3
+    uv run python scripts/run_conversation.py --domain product-design
+    uv run python scripts/run_conversation.py --list-domains
     uv run python scripts/run_conversation.py --no-synthesis
     uv run python scripts/run_conversation.py --no-scoring
     uv run python scripts/run_conversation.py --synthesis-only <run-id>
@@ -43,6 +45,8 @@ from src.db.queries import (
     record_pairing,
 )
 from src.db.schema import init_schema
+from src.domains.models import DomainConfig
+from src.domains.registry import get_active_domain, get_all_domains, get_domain
 from src.engine.conversation import ConversationError, ConversationRunner
 from src.engine.models import ConversationConfig, ConversationRequest
 from src.personas.library import (
@@ -88,6 +92,17 @@ def parse_args() -> argparse.Namespace:
         help="Index of the shared object to use (default: random)",
     )
     parser.add_argument(
+        "--domain",
+        type=str,
+        default=None,
+        help="Domain name to use (overrides ACTIVE_DOMAIN env var)",
+    )
+    parser.add_argument(
+        "--list-domains",
+        action="store_true",
+        help="List all available domains and exit",
+    )
+    parser.add_argument(
         "--list-personas",
         action="store_true",
         help="List all available personas and exit",
@@ -124,8 +139,23 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _resolve_domain(args: argparse.Namespace) -> DomainConfig:
+    """Resolve the domain config from CLI args or environment.
+
+    Args:
+        args: Parsed command-line arguments.
+
+    Returns:
+        The resolved DomainConfig.
+    """
+    if args.domain:
+        return get_domain(args.domain)
+    return get_active_domain()
+
+
 async def _run_synthesis(
     db: aiosqlite.Connection,
+    domain: DomainConfig,
     run_record_id: UUID,
     transcript: list,
     persona_a_name: str,
@@ -139,6 +169,7 @@ async def _run_synthesis(
 
     Args:
         db: Database connection.
+        domain: Active domain configuration.
         run_record_id: ID of the run to attach the concept to.
         transcript: Ordered list of conversation turns.
         persona_a_name: Name of the first persona.
@@ -158,7 +189,7 @@ async def _run_synthesis(
     print(f"{'─' * 60}\n")
 
     try:
-        synthesizer = Synthesizer()
+        synthesizer = Synthesizer(domain)
         extraction = await synthesizer.synthesize(
             transcript=transcript,
             persona_a_name=persona_a_name,
@@ -170,16 +201,17 @@ async def _run_synthesis(
             db,
             ConceptCreate(
                 run_id=run_record_id,
-                title=extraction.title,
-                premise=extraction.premise,
-                originality=extraction.originality,
+                domain=domain.name,
+                title=extraction[domain.primary_field],
+                fields=extraction,
             ),
         )
 
-        print(f"Title:       {concept.title}")
-        print(f"Premise:     {concept.premise}")
-        print(f"Originality: {concept.originality}")
-        print(f"Concept ID:  {concept.id}")
+        # Display each extraction field with its label
+        for ef in domain.extraction_fields:
+            value = extraction.get(ef.name, "")
+            print(f"{ef.label + ':':<16} {value}")
+        print(f"{'Concept ID:':<16} {concept.id}")
 
         return concept
 
@@ -194,12 +226,17 @@ async def _run_synthesis(
         return None
 
 
-async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
+async def _synthesis_only(
+    db: aiosqlite.Connection,
+    run_id_str: str,
+    domain: DomainConfig,
+) -> None:
     """Run synthesis on an existing completed run.
 
     Args:
         db: Database connection.
         run_id_str: String UUID of the run to synthesize.
+        domain: Active domain configuration.
     """
     try:
         run_id = UUID(run_id_str)
@@ -226,10 +263,12 @@ async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
     print(f"Run ID:     {run_record.id}")
     print(f"Persona A:  {run_record.persona_a_name}")
     print(f"Persona B:  {run_record.persona_b_name}")
+    print(f"Domain:     {domain.label}")
     print(f"{'=' * 60}")
 
     concept = await _run_synthesis(
         db=db,
+        domain=domain,
         run_record_id=run_record.id,
         transcript=run_record.transcript,
         persona_a_name=run_record.persona_a_name,
@@ -238,11 +277,12 @@ async def _synthesis_only(db: aiosqlite.Connection, run_id_str: str) -> None:
     )
 
     if concept is not None:
-        await _run_scoring(db=db, concept=concept)
+        await _run_scoring(db=db, domain=domain, concept=concept)
 
 
 async def _run_scoring(
     db: aiosqlite.Connection,
+    domain: DomainConfig,
     concept: Concept,
 ) -> None:
     """Score a concept and persist the evaluation.
@@ -252,6 +292,7 @@ async def _run_scoring(
 
     Args:
         db: Database connection.
+        domain: Active domain configuration.
         concept: The concept to score.
     """
     if not settings.openai_api_key:
@@ -264,32 +305,20 @@ async def _run_scoring(
     print(f"{'─' * 60}\n")
 
     try:
-        scorer = Scorer()
-        result = await scorer.score(
-            title=concept.title,
-            premise=concept.premise,
-            originality=concept.originality,
-        )
+        scorer = Scorer(domain)
+        result = await scorer.score(fields=concept.fields)
 
         await create_score(
             db,
             ScoreCreate(
                 concept_id=concept.id,
-                uniqueness_score=result.uniqueness.score,
-                uniqueness_reasoning=result.uniqueness.reasoning,
-                plausibility_score=result.plausibility.score,
-                plausibility_reasoning=result.plausibility.reasoning,
-                compelling_factor_score=result.compelling_factor.score,
-                compelling_factor_reasoning=result.compelling_factor.reasoning,
+                axes=result,
             ),
         )
 
-        print(f"Uniqueness:        {result.uniqueness.score}/10")
-        print(f"  → {result.uniqueness.reasoning}\n")
-        print(f"Plausibility:      {result.plausibility.score}/10")
-        print(f"  → {result.plausibility.reasoning}\n")
-        print(f"Compelling Factor: {result.compelling_factor.score}/10")
-        print(f"  → {result.compelling_factor.reasoning}")
+        for axis_score in result:
+            print(f"{axis_score.label}:  {axis_score.score}/10")
+            print(f"  → {axis_score.reasoning}\n")
 
     except ScoringError as e:
         logger.error("Scoring failed: %s", e)
@@ -298,12 +327,17 @@ async def _run_scoring(
         print(f"  uv run python scripts/run_conversation.py --score-only {concept.id}")
 
 
-async def _score_only(db: aiosqlite.Connection, concept_id_str: str) -> None:
+async def _score_only(
+    db: aiosqlite.Connection,
+    concept_id_str: str,
+    domain: DomainConfig,
+) -> None:
     """Score an existing concept.
 
     Args:
         db: Database connection.
         concept_id_str: String UUID of the concept to score.
+        domain: Active domain configuration.
     """
     try:
         concept_id = UUID(concept_id_str)
@@ -321,14 +355,20 @@ async def _score_only(db: aiosqlite.Connection, concept_id_str: str) -> None:
     print(f"{'=' * 60}")
     print(f"Concept ID: {concept.id}")
     print(f"Title:      {concept.title}")
+    print(f"Domain:     {domain.label}")
     print(f"{'=' * 60}")
 
-    await _run_scoring(db=db, concept=concept)
+    await _run_scoring(db=db, domain=domain, concept=concept)
 
 
 async def run(args: argparse.Namespace) -> None:
     """Execute a conversation run with the given arguments."""
     # Handle list commands
+    if args.list_domains:
+        for d in get_all_domains():
+            print(f"  {d.name}: {d.label} — {d.description}")
+        return
+
     if args.list_personas:
         for persona in get_all_personas():
             print(f"  {persona.name}: {persona.title}")
@@ -338,6 +378,9 @@ async def run(args: argparse.Namespace) -> None:
         for i, obj in enumerate(get_all_shared_objects()):
             print(f"  [{i}] ({obj.object_type}) {obj.text[:80]}...")
         return
+
+    # Resolve domain
+    domain = _resolve_domain(args)
 
     # Connect to database
     db_path = Path(settings.database_path)
@@ -351,12 +394,12 @@ async def run(args: argparse.Namespace) -> None:
     try:
         # Handle score-only mode
         if args.score_only:
-            await _score_only(db, args.score_only)
+            await _score_only(db, args.score_only, domain)
             return
 
         # Handle synthesis-only mode
         if args.synthesis_only:
-            await _synthesis_only(db, args.synthesis_only)
+            await _synthesis_only(db, args.synthesis_only, domain)
             return
 
         # Select personas
@@ -402,6 +445,7 @@ async def run(args: argparse.Namespace) -> None:
         print("MEDICI ENGINE — Conversation Run")
         print(f"{'=' * 60}")
         print(f"Run ID:         {run_record.id}")
+        print(f"Domain:         {domain.label}")
         print(f"Persona A:      {persona_a.title}")
         print(f"Persona B:      {persona_b.title}")
         print(f"Shared Object:  {shared_object.text[:80]}...")
@@ -451,6 +495,7 @@ async def run(args: argparse.Namespace) -> None:
         if not args.no_synthesis:
             concept = await _run_synthesis(
                 db=db,
+                domain=domain,
                 run_record_id=run_record.id,
                 transcript=turns,
                 persona_a_name=persona_a.name,
@@ -460,7 +505,7 @@ async def run(args: argparse.Namespace) -> None:
 
         # Run scoring if synthesis produced a concept
         if concept is not None and not args.no_scoring:
-            await _run_scoring(db=db, concept=concept)
+            await _run_scoring(db=db, domain=domain, concept=concept)
 
     except ConversationError as e:
         logger.error("Conversation failed: %s", e)

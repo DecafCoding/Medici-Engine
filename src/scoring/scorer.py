@@ -1,12 +1,11 @@
 """
 Scorer for the Medici Engine.
 
-Evaluates concepts extracted by the synthesizer across three domain-specific
-axes — uniqueness, scientific plausibility, and compelling factor — using
-the OpenAI o3 model with structured output. Each axis receives a 0.0-10.0
-score with written reasoning that helps a human reviewer make faster
-keep/discard decisions. This module belongs to the Scoring layer and
-communicates with the OpenAI API only — no vLLM calls.
+Evaluates concepts extracted by the synthesizer across domain-specific
+axes using the OpenAI API with structured output. Each axis receives a
+0.0-10.0 score with written reasoning that helps a human reviewer make
+faster keep/discard decisions. This module belongs to the Scoring layer
+and communicates with the OpenAI API only — no vLLM calls.
 """
 
 import logging
@@ -20,42 +19,10 @@ from openai import (
 )
 
 from src.config import settings
-from src.scoring.models import ConceptScoring
+from src.db.queries import AxisScoreRecord
+from src.domains.models import DomainConfig, create_scoring_model
 
 logger = logging.getLogger(__name__)
-
-SCORING_PROMPT = """\
-You are an evaluator for the Medici Engine — a system that collides radically \
-different worldviews to surface novel sci-fi book concepts.
-
-You will receive a concept consisting of a title, premise, and originality \
-statement. Your job is to evaluate this concept across three axes. For each \
-axis, provide a score from 0.0 to 10.0 and written reasoning that explains \
-the score.
-
-Your reasoning should help a human reviewer make a faster, better-informed \
-keep/discard decision. Be specific and honest — a well-reasoned 4 is more \
-useful than an inflated 8.
-
-**Evaluation Axes:**
-
-1. **Uniqueness** — How novel and unprecedented is this concept? Has something \
-structurally similar been explored in published sci-fi? A high score means the core \
-idea breaks genuinely new ground, not just a fresh coat of paint on a familiar trope. \
-A low score means it closely echoes existing work, even if well-executed.
-
-2. **Scientific Plausibility** — Could the underlying science or speculative \
-framework work, even in a generous reading? A high score means the concept is \
-grounded in real principles extended thoughtfully, or builds a self-consistent \
-speculative framework. A low score means the concept relies on handwaving or \
-contradicts well-established science without justification.
-
-3. **Compelling Factor** — Would someone want to read a book built on this concept? \
-A high score means the idea provokes genuine curiosity, raises questions the reader \
-needs answered, or reframes something familiar in a way that demands exploration. \
-A low score means the idea is intellectually interesting but inert — it doesn't \
-pull the reader forward.\
-"""
 
 
 class ScoringError(Exception):
@@ -67,16 +34,20 @@ class EvaluationError(ScoringError):
 
 
 class Scorer:
-    """Evaluates concepts across domain-specific axes using OpenAI o3.
+    """Evaluates concepts across domain-specific axes using the OpenAI API.
 
-    Takes a concept's title, premise, and originality statement, sends
-    them to the scoring model with structured output, and returns
-    per-axis scores with written reasoning. Communicates with the
-    remote OpenAI API only.
+    Takes a concept's extracted fields, sends them to the scoring model
+    with structured output, and returns per-axis scores with written
+    reasoning. The scoring axes and prompt are driven by the domain config.
     """
 
-    def __init__(self) -> None:
-        """Initialize the scorer with an OpenAI API client."""
+    def __init__(self, domain: DomainConfig) -> None:
+        """Initialize the scorer with a domain config and OpenAI client.
+
+        Args:
+            domain: Domain configuration defining scoring axes and prompt.
+        """
+        self._domain = domain
         self._client = AsyncOpenAI(
             api_key=settings.openai_api_key,
             timeout=httpx.Timeout(60.0, connect=5.0),
@@ -85,40 +56,40 @@ class Scorer:
 
     async def score(
         self,
-        title: str,
-        premise: str,
-        originality: str,
-    ) -> ConceptScoring:
-        """Score a concept across uniqueness, plausibility, and compelling factor.
+        fields: dict[str, str],
+    ) -> list[AxisScoreRecord]:
+        """Score a concept across domain-specific evaluation axes.
 
         Args:
-            title: Working title of the concept.
-            premise: Core premise — the central idea.
-            originality: What makes the concept novel.
+            fields: Dict of extraction field names to values (e.g.,
+                {"title": "...", "premise": "...", "originality": "..."}).
 
         Returns:
-            Structured scoring result with per-axis scores and reasoning.
+            List of AxisScoreRecord objects, one per scoring axis.
 
         Raises:
             ScoringError: If scoring cannot be completed.
             EvaluationError: If the API fails or refuses to score.
         """
+        primary_value = fields.get(self._domain.primary_field, "unknown")
         logger.info(
             "Scoring concept",
-            extra={"concept_title": title},
+            extra={
+                "concept_title": primary_value,
+                "domain": self._domain.name,
+            },
         )
 
-        messages = self._build_messages(
-            title=title,
-            premise=premise,
-            originality=originality,
-        )
+        messages = self._build_messages(fields)
+
+        # Build the response_format model dynamically from domain config
+        scoring_model = create_scoring_model(self._domain)
 
         try:
             response = await self._client.beta.chat.completions.parse(
                 model=settings.scoring_model,
                 messages=messages,
-                response_format=ConceptScoring,
+                response_format=scoring_model,
                 temperature=0.3,
             )
         except APIConnectionError as e:
@@ -135,41 +106,57 @@ class Scorer:
             refusal = response.choices[0].message.refusal
             raise EvaluationError(f"Model refused to score concept: {refusal}")
 
+        # Map dynamic model fields to AxisScoreRecord objects with labels
+        axis_scores: list[AxisScoreRecord] = []
+        for axis_def in self._domain.scoring_axes:
+            axis_result = getattr(result, axis_def.name)
+            axis_scores.append(
+                AxisScoreRecord(
+                    axis=axis_def.name,
+                    label=axis_def.label,
+                    score=axis_result.score,
+                    reasoning=axis_result.reasoning,
+                )
+            )
+
         logger.info(
             "Concept scored",
             extra={
-                "concept_title": title,
-                "uniqueness": result.uniqueness.score,
-                "plausibility": result.plausibility.score,
-                "compelling_factor": result.compelling_factor.score,
+                "concept_title": primary_value,
+                "domain": self._domain.name,
+                "scores": {s.axis: s.score for s in axis_scores},
             },
         )
 
-        return result
+        return axis_scores
 
     def _build_messages(
         self,
-        title: str,
-        premise: str,
-        originality: str,
+        fields: dict[str, str],
     ) -> list[dict[str, str]]:
         """Build the chat messages for the scoring API call.
 
+        Formats each extraction field with its human-readable label
+        from the domain config.
+
         Args:
-            title: Working title of the concept.
-            premise: Core premise of the concept.
-            originality: What makes the concept novel.
+            fields: Dict of extraction field names to values.
 
         Returns:
             List of message dicts ready for the OpenAI chat API.
         """
-        user_content = (
-            f"**Title:** {title}\n\n"
-            f"**Premise:** {premise}\n\n"
-            f"**Originality:** {originality}"
-        )
+        # Build a lookup from field name to label
+        field_labels = {ef.name: ef.label for ef in self._domain.extraction_fields}
+
+        # Format each field as **Label:** value
+        lines: list[str] = []
+        for name, value in fields.items():
+            label = field_labels.get(name, name)
+            lines.append(f"**{label}:** {value}")
+
+        user_content = "\n\n".join(lines)
 
         return [
-            {"role": "system", "content": SCORING_PROMPT},
+            {"role": "system", "content": self._domain.scoring_prompt},
             {"role": "user", "content": user_content},
         ]

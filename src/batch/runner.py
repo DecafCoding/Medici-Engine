@@ -30,6 +30,8 @@ from src.db.queries import (
     increment_batch_failed,
     record_pairing,
 )
+from src.domains.models import DomainConfig
+from src.domains.registry import get_active_domain
 from src.engine.conversation import ConversationRunner
 from src.engine.models import ConversationConfig, ConversationRequest
 from src.personas.library import (
@@ -81,6 +83,7 @@ class BatchRunner:
             },
         )
 
+        domain = get_active_domain()
         all_shared_objects = get_all_shared_objects()
 
         for i in range(request.num_conversations):
@@ -139,6 +142,7 @@ class BatchRunner:
                 concept = None
                 if settings.openai_api_key:
                     concept = await self._run_synthesis(
+                        domain=domain,
                         run_id=run_id,
                         turns=turns,
                         persona_a_name=persona_a.name,
@@ -148,7 +152,11 @@ class BatchRunner:
 
                 # 7. Score (if synthesis succeeded and API key available)
                 if concept is not None and settings.openai_api_key:
-                    await self._run_scoring(concept_id=concept.id, concept=concept)
+                    await self._run_scoring(
+                        domain=domain,
+                        concept_id=concept.id,
+                        fields=concept.fields,
+                    )
 
                 await increment_batch_completed(self._db, batch_id)
 
@@ -206,6 +214,7 @@ class BatchRunner:
 
     async def _run_synthesis(
         self,
+        domain: DomainConfig,
         run_id: UUID,
         turns: list,
         persona_a_name: str,
@@ -215,6 +224,7 @@ class BatchRunner:
         """Run synthesis on a transcript and persist the concept.
 
         Args:
+            domain: Active domain configuration.
             run_id: ID of the run to attach the concept to.
             turns: Ordered list of conversation turns.
             persona_a_name: Name of the first persona.
@@ -225,7 +235,7 @@ class BatchRunner:
             The created Concept if synthesis succeeds, None otherwise.
         """
         try:
-            synthesizer = Synthesizer()
+            synthesizer = Synthesizer(domain)
             extraction = await synthesizer.synthesize(
                 transcript=turns,
                 persona_a_name=persona_a_name,
@@ -236,39 +246,36 @@ class BatchRunner:
                 self._db,
                 ConceptCreate(
                     run_id=run_id,
-                    title=extraction.title,
-                    premise=extraction.premise,
-                    originality=extraction.originality,
+                    domain=domain.name,
+                    title=extraction[domain.primary_field],
+                    fields=extraction,
                 ),
             )
         except SynthesisError as e:
             logger.warning("Synthesis failed for run %s: %s", run_id, e)
             return None
 
-    async def _run_scoring(self, concept_id: UUID, concept) -> None:
+    async def _run_scoring(
+        self,
+        domain: DomainConfig,
+        concept_id: UUID,
+        fields: dict[str, str],
+    ) -> None:
         """Score a concept and persist the evaluation.
 
         Args:
+            domain: Active domain configuration.
             concept_id: ID of the concept to score.
-            concept: The concept object with title, premise, originality.
+            fields: The concept's extracted fields.
         """
         try:
-            scorer = Scorer()
-            result = await scorer.score(
-                title=concept.title,
-                premise=concept.premise,
-                originality=concept.originality,
-            )
+            scorer = Scorer(domain)
+            result = await scorer.score(fields=fields)
             await create_score(
                 self._db,
                 ScoreCreate(
                     concept_id=concept_id,
-                    uniqueness_score=result.uniqueness.score,
-                    uniqueness_reasoning=result.uniqueness.reasoning,
-                    plausibility_score=result.plausibility.score,
-                    plausibility_reasoning=result.plausibility.reasoning,
-                    compelling_factor_score=result.compelling_factor.score,
-                    compelling_factor_reasoning=result.compelling_factor.reasoning,
+                    axes=result,
                 ),
             )
         except ScoringError as e:
