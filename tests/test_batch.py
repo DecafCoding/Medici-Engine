@@ -324,3 +324,88 @@ async def test_batch_handles_scoring_failure(
 
     scores = await get_scores(db)
     assert len(scores) == 0
+
+
+async def test_batch_with_zero_conversations(
+    db,
+    mock_conversation_runner,
+    mock_synthesizer,
+    mock_scorer,
+    api_key_set,
+):
+    """A batch with 0 conversations completes immediately with no runs."""
+    batch_id = await _create_test_batch(db, 0)
+    request = BatchRequest(
+        num_conversations=0,
+        turns_per_agent=5,
+    )
+
+    runner = BatchRunner(db)
+    await runner.run_batch(request, batch_id)
+
+    batch = await get_batch_by_id(db, batch_id)
+    assert batch is not None
+    assert batch.completed_runs == 0
+    assert batch.failed_runs == 0
+    # No runs succeeded, so complete_batch marks it "failed"
+    assert batch.status == "failed"
+
+    runs = await get_runs_by_batch_id(db, batch_id)
+    assert len(runs) == 0
+
+    mock_conversation_runner.run.assert_not_called()
+
+
+async def test_batch_all_conversations_fail(
+    db,
+    mock_synthesizer,
+    mock_scorer,
+    api_key_set,
+):
+    """Batch with all conversations failing sets status to 'failed'."""
+    batch_id = await _create_test_batch(db, 2)
+    request = BatchRequest(
+        persona_pairs=[("quantum_information_theorist", "medieval_master_builder")],
+        num_conversations=2,
+        turns_per_agent=5,
+    )
+
+    with patch("src.batch.runner.ConversationRunner") as mock_cls:
+        instance = mock_cls.return_value
+        instance.run = AsyncMock(
+            side_effect=ConversationError("vLLM unreachable"),
+        )
+
+        runner = BatchRunner(db)
+        await runner.run_batch(request, batch_id)
+
+    batch = await get_batch_by_id(db, batch_id)
+    assert batch is not None
+    assert batch.status == "failed"
+    assert batch.completed_runs == 0
+    assert batch.failed_runs == 2
+
+
+async def test_batch_with_specified_shared_objects(
+    db,
+    mock_conversation_runner,
+    mock_synthesizer,
+    mock_scorer,
+    api_key_set,
+):
+    """Specified shared object indices select the correct objects."""
+    batch_id = await _create_test_batch(db, 1)
+    request = BatchRequest(
+        persona_pairs=[("quantum_information_theorist", "medieval_master_builder")],
+        shared_object_indices=[2],
+        num_conversations=1,
+        turns_per_agent=5,
+    )
+
+    runner = BatchRunner(db)
+    await runner.run_batch(request, batch_id)
+
+    runs = await get_runs_by_batch_id(db, batch_id)
+    assert len(runs) == 1
+    # Index 2 is the third shared object: the ancient library scenario
+    assert "ancient library" in runs[0].shared_object_text.lower()
