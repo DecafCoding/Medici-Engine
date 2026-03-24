@@ -51,6 +51,12 @@ class Settings(BaseSettings):
         description="OpenAI model for scoring",
     )
 
+    # Domain
+    active_domain: str = Field(
+        default="sci-fi-concepts",
+        description="Active domain configuration name",
+    )
+
     # Database
     database_path: str = Field(
         default="data/yield_engine.db",
