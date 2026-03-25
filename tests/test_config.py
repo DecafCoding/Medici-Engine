@@ -18,3 +18,9 @@ def test_settings_types() -> None:
     assert isinstance(s.conversation_temperature, float)
     assert isinstance(s.conversation_max_tokens, int)
     assert isinstance(s.default_turns, int)
+
+
+def test_active_domain_default() -> None:
+    """Verify the active_domain setting defaults to sci-fi-concepts."""
+    s = Settings()
+    assert s.active_domain == "sci-fi-concepts"

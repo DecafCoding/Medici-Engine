@@ -1,6 +1,7 @@
 """Tests for the API endpoints."""
 
 from src.db.queries import (
+    AxisScoreRecord,
     ConceptCreate,
     RunCreate,
     ScoreCreate,
@@ -45,9 +46,9 @@ async def test_get_run_concept(client, db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Test Concept",
-            premise="Test premise.",
-            originality="Test originality.",
+            fields={"title": "Test Concept", "premise": "p", "originality": "o"},
         ),
     )
 
@@ -72,21 +73,39 @@ async def _seed_score(db):
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Scored Concept",
-            premise="Test premise.",
-            originality="Test originality.",
+            fields={
+                "title": "Scored Concept",
+                "premise": "Test premise.",
+                "originality": "Test originality.",
+            },
         ),
     )
     score = await create_score(
         db,
         ScoreCreate(
             concept_id=concept.id,
-            uniqueness_score=8.5,
-            uniqueness_reasoning="Highly novel.",
-            plausibility_score=6.0,
-            plausibility_reasoning="Requires extrapolation.",
-            compelling_factor_score=7.5,
-            compelling_factor_reasoning="Provocative idea.",
+            axes=[
+                AxisScoreRecord(
+                    axis="uniqueness",
+                    label="Uniqueness",
+                    score=8.5,
+                    reasoning="Highly novel.",
+                ),
+                AxisScoreRecord(
+                    axis="plausibility",
+                    label="Plausibility",
+                    score=6.0,
+                    reasoning="Requires extrapolation.",
+                ),
+                AxisScoreRecord(
+                    axis="compelling_factor",
+                    label="Compelling Factor",
+                    score=7.5,
+                    reasoning="Provocative idea.",
+                ),
+            ],
         ),
     )
     return run, concept, score
@@ -99,10 +118,12 @@ async def test_get_concept_scores(client, db) -> None:
     response = await client.get(f"/api/concepts/{concept.id}/scores")
     assert response.status_code == 200
     data = response.json()
-    assert data["uniqueness_score"] == 8.5
-    assert data["plausibility_score"] == 6.0
-    assert data["compelling_factor_score"] == 7.5
     assert data["concept_id"] == str(concept.id)
+    assert len(data["axes"]) == 3
+    axes_by_name = {a["axis"]: a for a in data["axes"]}
+    assert axes_by_name["uniqueness"]["score"] == 8.5
+    assert axes_by_name["plausibility"]["score"] == 6.0
+    assert axes_by_name["compelling_factor"]["score"] == 7.5
 
 
 async def test_list_scores(client, db) -> None:
@@ -113,4 +134,4 @@ async def test_list_scores(client, db) -> None:
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["uniqueness_score"] == 8.5
+    assert len(data[0]["axes"]) == 3

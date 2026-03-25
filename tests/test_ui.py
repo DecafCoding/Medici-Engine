@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from src.db.queries import (
+    AxisScoreRecord,
     BatchCreate,
     ConceptCreate,
     RunCreate,
@@ -15,6 +16,7 @@ from src.db.queries import (
     create_run,
     create_score,
 )
+from src.domains.sci_fi_concepts import SCI_FI_CONCEPTS
 
 
 async def _seed_review_data(db):
@@ -46,21 +48,39 @@ async def _seed_review_data(db):
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Test Concept",
-            premise="Test premise for review.",
-            originality="Test originality statement.",
+            fields={
+                "title": "Test Concept",
+                "premise": "Test premise for review.",
+                "originality": "Test originality statement.",
+            },
         ),
     )
     score = await create_score(
         db,
         ScoreCreate(
             concept_id=concept.id,
-            uniqueness_score=8.5,
-            uniqueness_reasoning="Novel approach.",
-            plausibility_score=6.0,
-            plausibility_reasoning="Plausible with extrapolation.",
-            compelling_factor_score=7.5,
-            compelling_factor_reasoning="Compelling and provocative.",
+            axes=[
+                AxisScoreRecord(
+                    axis="uniqueness",
+                    label="Uniqueness",
+                    score=8.5,
+                    reasoning="Novel approach.",
+                ),
+                AxisScoreRecord(
+                    axis="plausibility",
+                    label="Scientific Plausibility",
+                    score=6.0,
+                    reasoning="Plausible with extrapolation.",
+                ),
+                AxisScoreRecord(
+                    axis="compelling_factor",
+                    label="Compelling Factor",
+                    score=7.5,
+                    reasoning="Compelling and provocative.",
+                ),
+            ],
         ),
     )
     return batch, run, concept, score
@@ -142,7 +162,8 @@ async def test_batch_status_endpoint(client, db) -> None:
 
 async def test_review_page_renders_empty(client) -> None:
     """Verify the review page renders correctly with no data."""
-    response = await client.get("/ui/review")
+    with patch("src.ui.routes.get_active_domain", return_value=SCI_FI_CONCEPTS):
+        response = await client.get("/ui/review")
     assert response.status_code == 200
     assert "concept-table-body" in response.text
     assert "No concepts found" in response.text
@@ -152,7 +173,8 @@ async def test_review_page_renders_with_data(client, db) -> None:
     """Verify the review page shows concept data when seeded."""
     await _seed_review_data(db)
 
-    response = await client.get("/ui/review")
+    with patch("src.ui.routes.get_active_domain", return_value=SCI_FI_CONCEPTS):
+        response = await client.get("/ui/review")
     assert response.status_code == 200
     assert "Test Concept" in response.text
 
@@ -198,21 +220,29 @@ async def test_review_sort_by_score(client, db) -> None:
         db,
         ConceptCreate(
             run_id=run1.id,
+            domain="sci-fi-concepts",
             title="Low Score Concept",
-            premise="p",
-            originality="o",
+            fields={"title": "Low Score Concept", "premise": "p", "originality": "o"},
         ),
     )
     await create_score(
         db,
         ScoreCreate(
             concept_id=concept1.id,
-            uniqueness_score=2.0,
-            uniqueness_reasoning="r",
-            plausibility_score=2.0,
-            plausibility_reasoning="r",
-            compelling_factor_score=2.0,
-            compelling_factor_reasoning="r",
+            axes=[
+                AxisScoreRecord(
+                    axis="uniqueness", label="Uniqueness", score=2.0, reasoning="r"
+                ),
+                AxisScoreRecord(
+                    axis="plausibility", label="Plausibility", score=2.0, reasoning="r"
+                ),
+                AxisScoreRecord(
+                    axis="compelling_factor",
+                    label="Compelling Factor",
+                    score=2.0,
+                    reasoning="r",
+                ),
+            ],
         ),
     )
 
@@ -229,21 +259,33 @@ async def test_review_sort_by_score(client, db) -> None:
         db,
         ConceptCreate(
             run_id=run2.id,
+            domain="sci-fi-concepts",
             title="High Score Concept",
-            premise="p",
-            originality="o",
+            fields={
+                "title": "High Score Concept",
+                "premise": "p",
+                "originality": "o",
+            },
         ),
     )
     await create_score(
         db,
         ScoreCreate(
             concept_id=concept2.id,
-            uniqueness_score=9.0,
-            uniqueness_reasoning="r",
-            plausibility_score=9.0,
-            plausibility_reasoning="r",
-            compelling_factor_score=9.0,
-            compelling_factor_reasoning="r",
+            axes=[
+                AxisScoreRecord(
+                    axis="uniqueness", label="Uniqueness", score=9.0, reasoning="r"
+                ),
+                AxisScoreRecord(
+                    axis="plausibility", label="Plausibility", score=9.0, reasoning="r"
+                ),
+                AxisScoreRecord(
+                    axis="compelling_factor",
+                    label="Compelling Factor",
+                    score=9.0,
+                    reasoning="r",
+                ),
+            ],
         ),
     )
 
@@ -263,7 +305,8 @@ async def test_concept_detail_page(client, db) -> None:
     """Verify the concept detail page shows all expected content."""
     _batch, _run, concept, _score = await _seed_review_data(db)
 
-    response = await client.get(f"/ui/review/{concept.id}")
+    with patch("src.ui.routes.get_active_domain", return_value=SCI_FI_CONCEPTS):
+        response = await client.get(f"/ui/review/{concept.id}")
     assert response.status_code == 200
     assert "Test Concept" in response.text
     assert "Test premise for review." in response.text
@@ -312,9 +355,9 @@ async def test_transcript_no_transcript(client, db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="No Transcript",
-            premise="p",
-            originality="o",
+            fields={"title": "No Transcript", "premise": "p", "originality": "o"},
         ),
     )
 

@@ -2,7 +2,10 @@
 
 from uuid import UUID, uuid4
 
+import pytest
+
 from src.db.queries import (
+    AxisScoreRecord,
     BatchCreate,
     ConceptCreate,
     RunCreate,
@@ -172,12 +175,18 @@ async def test_create_concept(db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="The Architecture of Forgetting",
-            premise="Buildings that preserve by decaying.",
-            originality="Combines structural failure with information theory.",
+            fields={
+                "title": "The Architecture of Forgetting",
+                "premise": "Buildings that preserve by decaying.",
+                "originality": "Combines structural failure with information theory.",
+            },
         ),
     )
     assert concept.title == "The Architecture of Forgetting"
+    assert concept.domain == "sci-fi-concepts"
+    assert concept.fields["premise"] == "Buildings that preserve by decaying."
     assert concept.run_id == run.id
     assert concept.status == "pending"
     assert concept.created_at is not None
@@ -190,9 +199,9 @@ async def test_get_concepts_filters_by_status(db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Concept One",
-            premise="Premise one.",
-            originality="Original one.",
+            fields={"title": "Concept One", "premise": "p1", "originality": "o1"},
         ),
     )
     run2 = await _create_test_run(db)
@@ -200,9 +209,9 @@ async def test_get_concepts_filters_by_status(db) -> None:
         db,
         ConceptCreate(
             run_id=run2.id,
+            domain="sci-fi-concepts",
             title="Concept Two",
-            premise="Premise two.",
-            originality="Original two.",
+            fields={"title": "Concept Two", "premise": "p2", "originality": "o2"},
         ),
     )
     await update_concept_status(db, concept1.id, "kept")
@@ -222,9 +231,9 @@ async def test_get_concept_by_run_id(db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Test Concept",
-            premise="Test premise.",
-            originality="Test originality.",
+            fields={"title": "Test Concept", "premise": "p", "originality": "o"},
         ),
     )
     fetched = await get_concept_by_run_id(db, run.id)
@@ -240,9 +249,9 @@ async def test_update_concept_status(db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Status Test",
-            premise="Test premise.",
-            originality="Test originality.",
+            fields={"title": "Status Test", "premise": "p", "originality": "o"},
         ),
     )
     assert concept.status == "pending"
@@ -257,6 +266,34 @@ async def test_update_concept_status(db) -> None:
 # ── Score Query Tests ────────────────────────────────
 
 
+def _make_test_axes(
+    uniqueness: float = 8.5,
+    plausibility: float = 6.0,
+    compelling: float = 7.5,
+) -> list[AxisScoreRecord]:
+    """Build a list of AxisScoreRecord for score tests."""
+    return [
+        AxisScoreRecord(
+            axis="uniqueness",
+            label="Uniqueness",
+            score=uniqueness,
+            reasoning="Highly novel concept.",
+        ),
+        AxisScoreRecord(
+            axis="plausibility",
+            label="Plausibility",
+            score=plausibility,
+            reasoning="Requires generous extrapolation.",
+        ),
+        AxisScoreRecord(
+            axis="compelling_factor",
+            label="Compelling Factor",
+            score=compelling,
+            reasoning="Immediately provocative.",
+        ),
+    ]
+
+
 async def _create_test_concept(db):
     """Helper to create a run and concept for score tests."""
     run = await _create_test_run(db)
@@ -264,9 +301,13 @@ async def _create_test_concept(db):
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Score Test Concept",
-            premise="Test premise for scoring.",
-            originality="Test originality for scoring.",
+            fields={
+                "title": "Score Test Concept",
+                "premise": "Test premise for scoring.",
+                "originality": "Test originality for scoring.",
+            },
         ),
     )
     return concept
@@ -275,23 +316,18 @@ async def _create_test_concept(db):
 async def test_create_score(db) -> None:
     """Verify a score can be created and linked to a concept."""
     concept = await _create_test_concept(db)
+    axes = _make_test_axes()
     score = await create_score(
         db,
-        ScoreCreate(
-            concept_id=concept.id,
-            uniqueness_score=8.5,
-            uniqueness_reasoning="Highly novel concept.",
-            plausibility_score=6.0,
-            plausibility_reasoning="Requires generous extrapolation.",
-            compelling_factor_score=7.5,
-            compelling_factor_reasoning="Immediately provocative.",
-        ),
+        ScoreCreate(concept_id=concept.id, axes=axes),
     )
     assert score.concept_id == concept.id
-    assert score.uniqueness_score == 8.5
-    assert score.uniqueness_reasoning == "Highly novel concept."
-    assert score.plausibility_score == 6.0
-    assert score.compelling_factor_score == 7.5
+    assert len(score.axes) == 3
+    assert score.axes[0].axis == "uniqueness"
+    assert score.axes[0].score == 8.5
+    assert score.axes[0].reasoning == "Highly novel concept."
+    # Overall score is the average: (8.5 + 6.0 + 7.5) / 3 = 7.33
+    assert score.overall_score == pytest.approx(7.33, abs=0.01)
     assert score.created_at is not None
 
 
@@ -302,18 +338,15 @@ async def test_get_score_by_concept_id(db) -> None:
         db,
         ScoreCreate(
             concept_id=concept.id,
-            uniqueness_score=9.0,
-            uniqueness_reasoning="Unprecedented.",
-            plausibility_score=5.0,
-            plausibility_reasoning="Speculative.",
-            compelling_factor_score=8.0,
-            compelling_factor_reasoning="Page-turner potential.",
+            axes=_make_test_axes(uniqueness=9.0, plausibility=5.0, compelling=8.0),
         ),
     )
     fetched = await get_score_by_concept_id(db, concept.id)
     assert fetched is not None
     assert fetched.id == created.id
-    assert fetched.uniqueness_score == 9.0
+    assert len(fetched.axes) == 3
+    uniqueness_axis = next(a for a in fetched.axes if a.axis == "uniqueness")
+    assert uniqueness_axis.score == 9.0
 
 
 async def test_get_score_by_concept_id_returns_none_for_missing(db) -> None:
@@ -466,30 +499,23 @@ async def test_get_concepts_with_scores(db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Test Concept",
-            premise="Test premise.",
-            originality="Test originality.",
+            fields={"title": "Test Concept", "premise": "p", "originality": "o"},
         ),
     )
     await create_score(
         db,
         ScoreCreate(
             concept_id=concept.id,
-            uniqueness_score=8.0,
-            uniqueness_reasoning="Novel.",
-            plausibility_score=6.0,
-            plausibility_reasoning="Plausible.",
-            compelling_factor_score=7.0,
-            compelling_factor_reasoning="Compelling.",
+            axes=_make_test_axes(uniqueness=8.0, plausibility=6.0, compelling=7.0),
         ),
     )
     results = await get_concepts_with_scores(db)
     assert len(results) == 1
     result = results[0]
     assert result.title == "Test Concept"
-    assert result.uniqueness_score == 8.0
-    assert result.plausibility_score == 6.0
-    assert result.compelling_factor_score == 7.0
+    # Overall is average: (8.0 + 6.0 + 7.0) / 3 = 7.0
     assert result.overall_score == 7.0
 
 
@@ -500,14 +526,13 @@ async def test_get_concepts_with_scores_no_score(db) -> None:
         db,
         ConceptCreate(
             run_id=run.id,
+            domain="sci-fi-concepts",
             title="Unscored Concept",
-            premise="Test premise.",
-            originality="Test originality.",
+            fields={"title": "Unscored Concept", "premise": "p", "originality": "o"},
         ),
     )
     results = await get_concepts_with_scores(db)
     assert len(results) == 1
-    assert results[0].uniqueness_score is None
     assert results[0].overall_score is None
 
 
@@ -518,21 +543,16 @@ async def test_get_concepts_with_scores_sort_by_score(db) -> None:
         db,
         ConceptCreate(
             run_id=run1.id,
+            domain="sci-fi-concepts",
             title="Low Score",
-            premise="p",
-            originality="o",
+            fields={"title": "Low Score", "premise": "p", "originality": "o"},
         ),
     )
     await create_score(
         db,
         ScoreCreate(
             concept_id=concept1.id,
-            uniqueness_score=3.0,
-            uniqueness_reasoning="r",
-            plausibility_score=3.0,
-            plausibility_reasoning="r",
-            compelling_factor_score=3.0,
-            compelling_factor_reasoning="r",
+            axes=_make_test_axes(uniqueness=3.0, plausibility=3.0, compelling=3.0),
         ),
     )
 
@@ -541,21 +561,16 @@ async def test_get_concepts_with_scores_sort_by_score(db) -> None:
         db,
         ConceptCreate(
             run_id=run2.id,
+            domain="sci-fi-concepts",
             title="High Score",
-            premise="p",
-            originality="o",
+            fields={"title": "High Score", "premise": "p", "originality": "o"},
         ),
     )
     await create_score(
         db,
         ScoreCreate(
             concept_id=concept2.id,
-            uniqueness_score=9.0,
-            uniqueness_reasoning="r",
-            plausibility_score=9.0,
-            plausibility_reasoning="r",
-            compelling_factor_score=9.0,
-            compelling_factor_reasoning="r",
+            axes=_make_test_axes(uniqueness=9.0, plausibility=9.0, compelling=9.0),
         ),
     )
 
