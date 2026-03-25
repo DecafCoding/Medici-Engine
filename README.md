@@ -6,9 +6,9 @@ A synthesizer agent extracts structured output from the conversation, a scoring 
 
 > This is a serendipity surface area expander — a machine for making lucky accidents more likely.
 
-## AI Development
+## Claude Code Development
 
-All the code in this repo was created by AI. I have been a C# developer for 20 years, not a single day on Python. So using AI to develop Python pushes me to focus more on the overall process like planning, communication, and testing versus just looking at the code to determine quality of the application. This is an application I intend to use regularly. If it benefits you, let me know.
+All the code in this repo was created by Claude Code. I have been a C# developer for 20 years, not a single day on Python. So using AI to develop Python pushes me to focus more on the overall process like planning, communication, and testing versus just looking at the code to determine quality of the application. This is an application I intend to use regularly. If it benefits you, let me know.
 
 ## How It Works
 
