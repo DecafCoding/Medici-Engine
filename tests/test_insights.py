@@ -9,16 +9,15 @@ from src.db.queries import (
     RunCreate,
     ScoreCreate,
     SharedObjectPerformance,
+    Turn,
     complete_run,
     create_concept,
     create_run,
     create_score,
     get_pairing_performance,
     get_shared_object_performance,
-    Turn,
     update_concept_status,
 )
-
 
 # ── Helpers ──────────────────────────────────────────
 
@@ -53,16 +52,22 @@ def _make_axes(score: float = 7.0) -> list[AxisScoreRecord]:
     """Build a uniform test score across three axes."""
     return [
         AxisScoreRecord(
-            axis="uniqueness", label="Uniqueness",
-            score=score, reasoning="Test.",
+            axis="uniqueness",
+            label="Uniqueness",
+            score=score,
+            reasoning="Test.",
         ),
         AxisScoreRecord(
-            axis="plausibility", label="Plausibility",
-            score=score, reasoning="Test.",
+            axis="plausibility",
+            label="Plausibility",
+            score=score,
+            reasoning="Test.",
         ),
         AxisScoreRecord(
-            axis="compelling_factor", label="Compelling Factor",
-            score=score, reasoning="Test.",
+            axis="compelling_factor",
+            label="Compelling Factor",
+            score=score,
+            reasoning="Test.",
         ),
     ]
 
@@ -130,10 +135,14 @@ async def test_pairing_performance_single_kept_concept(db) -> None:
 async def test_pairing_performance_multiple_runs_same_pairing(db) -> None:
     """Aggregates correctly across multiple runs for the same pairing."""
     await _seed_full_pipeline(
-        db, score_value=6.0, concept_status="kept",
+        db,
+        score_value=6.0,
+        concept_status="kept",
     )
     await _seed_full_pipeline(
-        db, score_value=8.0, concept_status="discarded",
+        db,
+        score_value=8.0,
+        concept_status="discarded",
     )
 
     results = await get_pairing_performance(db)
@@ -148,13 +157,19 @@ async def test_pairing_performance_multiple_runs_same_pairing(db) -> None:
 async def test_pairing_performance_normalizes_persona_order(db) -> None:
     """(A,B) and (B,A) aggregate together as the same pairing."""
     await _seed_full_pipeline(
-        db, persona_a="physicist", persona_b="builder",
-        score_value=6.0, concept_status="kept",
+        db,
+        persona_a="physicist",
+        persona_b="builder",
+        score_value=6.0,
+        concept_status="kept",
     )
     # Reversed order
     await _seed_full_pipeline(
-        db, persona_a="builder", persona_b="physicist",
-        score_value=8.0, concept_status="kept",
+        db,
+        persona_a="builder",
+        persona_b="physicist",
+        score_value=8.0,
+        concept_status="kept",
     )
 
     results = await get_pairing_performance(db)
@@ -170,11 +185,18 @@ async def test_pairing_performance_normalizes_persona_order(db) -> None:
 async def test_pairing_performance_filters_by_domain(db) -> None:
     """Domain filter only includes concepts from the specified domain."""
     await _seed_full_pipeline(
-        db, domain="sci-fi-concepts", score_value=9.0, concept_status="kept",
+        db,
+        domain="sci-fi-concepts",
+        score_value=9.0,
+        concept_status="kept",
     )
     await _seed_full_pipeline(
-        db, persona_a="chef", persona_b="dancer",
-        domain="product-design", score_value=5.0, concept_status="kept",
+        db,
+        persona_a="chef",
+        persona_b="dancer",
+        domain="product-design",
+        score_value=5.0,
+        concept_status="kept",
     )
 
     results = await get_pairing_performance(db, domain="sci-fi-concepts")
@@ -191,10 +213,16 @@ async def test_pairing_performance_min_runs_filter(db) -> None:
     await _seed_full_pipeline(db, score_value=7.0)
     # Only 1 run for this pairing
     await _seed_full_pipeline(
-        db, persona_a="chef", persona_b="dancer", score_value=9.0,
+        db,
+        persona_a="chef",
+        persona_b="dancer",
+        score_value=9.0,
     )
     await _seed_full_pipeline(
-        db, persona_a="chef", persona_b="dancer", score_value=8.0,
+        db,
+        persona_a="chef",
+        persona_b="dancer",
+        score_value=8.0,
     )
 
     results = await get_pairing_performance(db, min_runs=2)
@@ -236,13 +264,18 @@ async def test_shared_object_performance_aggregates_correctly(db) -> None:
     """Returns correct counts and scores for a shared object."""
     shared = "A bridge hums at midnight"
     await _seed_full_pipeline(
-        db, shared_object_text=shared,
-        score_value=8.0, concept_status="kept",
+        db,
+        shared_object_text=shared,
+        score_value=8.0,
+        concept_status="kept",
     )
     await _seed_full_pipeline(
-        db, persona_a="chef", persona_b="dancer",
+        db,
+        persona_a="chef",
+        persona_b="dancer",
         shared_object_text=shared,
-        score_value=6.0, concept_status="discarded",
+        score_value=6.0,
+        concept_status="discarded",
     )
 
     results = await get_shared_object_performance(db)
@@ -263,13 +296,20 @@ async def test_shared_object_performance_filters_by_domain(db) -> None:
     """Domain filter only includes concepts from the specified domain."""
     shared = "A signal from deep space"
     await _seed_full_pipeline(
-        db, shared_object_text=shared,
-        domain="sci-fi-concepts", score_value=9.0, concept_status="kept",
+        db,
+        shared_object_text=shared,
+        domain="sci-fi-concepts",
+        score_value=9.0,
+        concept_status="kept",
     )
     await _seed_full_pipeline(
-        db, persona_a="chef", persona_b="dancer",
+        db,
+        persona_a="chef",
+        persona_b="dancer",
         shared_object_text=shared,
-        domain="product-design", score_value=4.0, concept_status="kept",
+        domain="product-design",
+        score_value=4.0,
+        concept_status="kept",
     )
 
     results = await get_shared_object_performance(db, domain="sci-fi-concepts")

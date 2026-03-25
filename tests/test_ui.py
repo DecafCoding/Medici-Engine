@@ -391,3 +391,69 @@ async def test_status_toggle_discard(client, db) -> None:
     )
     assert response.status_code == 200
     assert "discarded" in response.text
+
+
+# ── Insights UI Tests ───────────────────────────────
+
+
+async def test_insights_page_renders_empty(client) -> None:
+    """Verify the insights page renders correctly with no data."""
+    response = await client.get("/ui/insights")
+    assert response.status_code == 200
+    assert "Pairing Performance" in response.text
+    assert "Shared Object Performance" in response.text
+    assert "No pairing data available." in response.text
+    assert "No shared object data available." in response.text
+
+
+async def test_insights_page_renders_with_data(client, db) -> None:
+    """Verify the insights page shows performance data when seeded."""
+    await _seed_review_data(db)
+
+    response = await client.get("/ui/insights")
+    assert response.status_code == 200
+    assert "test_builder" in response.text
+    assert "test_physicist" in response.text
+    assert "A test scenario" in response.text
+
+
+async def test_insights_pairing_fragment(client, db) -> None:
+    """Verify the pairing fragment returns data without full page layout."""
+    await _seed_review_data(db)
+
+    response = await client.get("/ui/insights/pairings")
+    assert response.status_code == 200
+    assert "test_builder" in response.text
+    assert "<!DOCTYPE" not in response.text
+
+
+async def test_insights_shared_object_fragment(client, db) -> None:
+    """Verify the shared object fragment returns data without full page layout."""
+    await _seed_review_data(db)
+
+    response = await client.get("/ui/insights/shared-objects")
+    assert response.status_code == 200
+    assert "A test scenario" in response.text
+    assert "<!DOCTYPE" not in response.text
+
+
+async def test_insights_domain_filter(client, db) -> None:
+    """Verify domain filter returns only matching domain data."""
+    await _seed_review_data(db)
+
+    # Filter by domain that has data
+    response = await client.get("/ui/insights/pairings?domain=sci-fi-concepts")
+    assert response.status_code == 200
+    assert "test_builder" in response.text
+
+    # Filter by domain with no data
+    response = await client.get("/ui/insights/pairings?domain=product-design")
+    assert response.status_code == 200
+    assert "No pairing data available." in response.text
+
+
+async def test_insights_nav_link_present(client) -> None:
+    """Verify the Insights nav link appears on all pages."""
+    response = await client.get("/ui/batch")
+    assert response.status_code == 200
+    assert 'href="/ui/insights"' in response.text

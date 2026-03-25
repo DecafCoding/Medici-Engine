@@ -23,11 +23,13 @@ from src.db.queries import (
     get_batch_by_id,
     get_concept_by_id,
     get_concepts_with_scores,
+    get_pairing_performance,
     get_run_by_id,
     get_score_by_concept_id,
+    get_shared_object_performance,
     update_concept_status,
 )
-from src.domains.registry import get_active_domain
+from src.domains.registry import get_active_domain, get_all_domains
 from src.personas.library import get_all_personas, get_all_shared_objects
 
 logger = logging.getLogger(__name__)
@@ -225,4 +227,48 @@ async def review_toggle_status(request: Request, concept_id: UUID):
     return templates.TemplateResponse(
         "fragments/concept_status.html",
         {"request": request, "concept": updated},
+    )
+
+
+# ── Insights Endpoints ──────────────────────────────
+
+
+@router.get("/insights")
+async def insights_page(request: Request, domain: str | None = None):
+    """Render the insights page with pairing and shared object performance."""
+    db = request.app.state.db
+    domains = get_all_domains()
+    pairings = await get_pairing_performance(db, domain=domain)
+    shared_objects = await get_shared_object_performance(db, domain=domain)
+    return templates.TemplateResponse(
+        "insights.html",
+        {
+            "request": request,
+            "pairings": pairings,
+            "shared_objects": shared_objects,
+            "current_domain": domain,
+            "domains": domains,
+        },
+    )
+
+
+@router.get("/insights/pairings")
+async def insights_pairing_rows(request: Request, domain: str | None = None):
+    """Return the pairing performance table body fragment for HTMX swap."""
+    db = request.app.state.db
+    pairings = await get_pairing_performance(db, domain=domain)
+    return templates.TemplateResponse(
+        "fragments/pairing_rows.html",
+        {"request": request, "pairings": pairings},
+    )
+
+
+@router.get("/insights/shared-objects")
+async def insights_shared_object_rows(request: Request, domain: str | None = None):
+    """Return the shared object performance table body fragment for HTMX swap."""
+    db = request.app.state.db
+    shared_objects = await get_shared_object_performance(db, domain=domain)
+    return templates.TemplateResponse(
+        "fragments/shared_object_rows.html",
+        {"request": request, "shared_objects": shared_objects},
     )
