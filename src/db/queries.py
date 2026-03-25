@@ -145,6 +145,35 @@ class ConceptWithScore(BaseModel):
     overall_score: float | None = None
 
 
+class PairingPerformance(BaseModel):
+    """Aggregated performance metrics for a persona pairing."""
+
+    persona_a_name: str
+    persona_b_name: str
+    total_runs: int
+    completed_runs: int
+    concepts_kept: int
+    concepts_discarded: int
+    concepts_pending: int
+    avg_score: float | None
+    max_score: float | None
+    kept_rate: float | None
+
+
+class SharedObjectPerformance(BaseModel):
+    """Aggregated performance metrics for a shared object."""
+
+    shared_object_text: str
+    shared_object_type: str
+    total_runs: int
+    completed_runs: int
+    concepts_kept: int
+    concepts_discarded: int
+    avg_score: float | None
+    max_score: float | None
+    kept_rate: float | None
+
+
 # ── Helpers ───────────────────────────────────────────
 
 
@@ -661,3 +690,163 @@ async def get_concepts_with_scores(
     cursor = await db.execute(base_query, params)
     rows = await cursor.fetchall()
     return [_row_to_concept_with_score(row) for row in rows]
+
+
+# ── Analytics Queries ────────────────────────────────
+
+
+def _compute_kept_rate(kept: int, discarded: int) -> float | None:
+    """Compute kept rate from review counts, returning None if none reviewed."""
+    reviewed = kept + discarded
+    if reviewed == 0:
+        return None
+    return round(kept / reviewed, 4)
+
+
+def _row_to_pairing_performance(row: aiosqlite.Row) -> PairingPerformance:
+    """Map an aggregated row to a PairingPerformance model."""
+    kept = row["concepts_kept"]
+    discarded = row["concepts_discarded"]
+    return PairingPerformance(
+        persona_a_name=row["persona_a_name"],
+        persona_b_name=row["persona_b_name"],
+        total_runs=row["total_runs"],
+        completed_runs=row["completed_runs"],
+        concepts_kept=kept,
+        concepts_discarded=discarded,
+        concepts_pending=row["concepts_pending"],
+        avg_score=row["avg_score"],
+        max_score=row["max_score"],
+        kept_rate=_compute_kept_rate(kept, discarded),
+    )
+
+
+async def get_pairing_performance(
+    db: aiosqlite.Connection,
+    domain: str | None = None,
+    min_runs: int = 1,
+    limit: int = 50,
+) -> list[PairingPerformance]:
+    """Aggregate concept outcomes and scores by persona pairing.
+
+    Normalizes persona order so (A,B) and (B,A) are treated as the
+    same pairing. Joins runs -> concepts -> scores.
+
+    Args:
+        db: Database connection.
+        domain: Optional filter by concept domain.
+        min_runs: Minimum number of runs to include a pairing.
+        limit: Maximum number of results.
+
+    Returns:
+        List of pairing performance records sorted by avg score descending.
+    """
+    query = (
+        "SELECT "
+        "  MIN(r.persona_a_name, r.persona_b_name) AS persona_a_name, "
+        "  MAX(r.persona_a_name, r.persona_b_name) AS persona_b_name, "
+        "  COUNT(DISTINCT r.id) AS total_runs, "
+        "  COUNT(DISTINCT CASE WHEN r.status = 'completed' "
+        "    THEN r.id END) AS completed_runs, "
+        "  SUM(CASE WHEN c.status = 'kept' THEN 1 ELSE 0 END) AS concepts_kept, "
+        "  SUM(CASE WHEN c.status = 'discarded' "
+        "    THEN 1 ELSE 0 END) AS concepts_discarded, "
+        "  SUM(CASE WHEN c.status = 'pending' "
+        "    THEN 1 ELSE 0 END) AS concepts_pending, "
+        "  ROUND(AVG(s.overall_score), 2) AS avg_score, "
+        "  MAX(s.overall_score) AS max_score "
+        "FROM runs r "
+        "LEFT JOIN concepts c ON c.run_id = r.id "
+        "LEFT JOIN scores s ON s.concept_id = c.id"
+    )
+
+    params: list[str | int] = []
+    if domain:
+        query += " WHERE c.domain = ?"
+        params.append(domain)
+
+    query += (
+        " GROUP BY MIN(r.persona_a_name, r.persona_b_name), "
+        "MAX(r.persona_a_name, r.persona_b_name)"
+    )
+    query += " HAVING COUNT(DISTINCT r.id) >= ?"
+    params.append(min_runs)
+
+    query += " ORDER BY (avg_score IS NULL), avg_score DESC LIMIT ?"
+    params.append(limit)
+
+    cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return [_row_to_pairing_performance(row) for row in rows]
+
+
+def _row_to_shared_object_performance(
+    row: aiosqlite.Row,
+) -> SharedObjectPerformance:
+    """Map an aggregated row to a SharedObjectPerformance model."""
+    kept = row["concepts_kept"]
+    discarded = row["concepts_discarded"]
+    return SharedObjectPerformance(
+        shared_object_text=row["shared_object_text"],
+        shared_object_type=row["shared_object_type"],
+        total_runs=row["total_runs"],
+        completed_runs=row["completed_runs"],
+        concepts_kept=kept,
+        concepts_discarded=discarded,
+        avg_score=row["avg_score"],
+        max_score=row["max_score"],
+        kept_rate=_compute_kept_rate(kept, discarded),
+    )
+
+
+async def get_shared_object_performance(
+    db: aiosqlite.Connection,
+    domain: str | None = None,
+    min_runs: int = 1,
+    limit: int = 50,
+) -> list[SharedObjectPerformance]:
+    """Aggregate concept outcomes and scores by shared object.
+
+    Joins runs -> concepts -> scores grouped by shared object text and type.
+
+    Args:
+        db: Database connection.
+        domain: Optional filter by concept domain.
+        min_runs: Minimum number of runs to include a shared object.
+        limit: Maximum number of results.
+
+    Returns:
+        List of shared object performance records sorted by avg score descending.
+    """
+    query = (
+        "SELECT "
+        "  r.shared_object_text, "
+        "  r.shared_object_type, "
+        "  COUNT(DISTINCT r.id) AS total_runs, "
+        "  COUNT(DISTINCT CASE WHEN r.status = 'completed' "
+        "    THEN r.id END) AS completed_runs, "
+        "  SUM(CASE WHEN c.status = 'kept' THEN 1 ELSE 0 END) AS concepts_kept, "
+        "  SUM(CASE WHEN c.status = 'discarded' "
+        "    THEN 1 ELSE 0 END) AS concepts_discarded, "
+        "  ROUND(AVG(s.overall_score), 2) AS avg_score, "
+        "  MAX(s.overall_score) AS max_score "
+        "FROM runs r "
+        "LEFT JOIN concepts c ON c.run_id = r.id "
+        "LEFT JOIN scores s ON s.concept_id = c.id"
+    )
+
+    params: list[str | int] = []
+    if domain:
+        query += " WHERE c.domain = ?"
+        params.append(domain)
+
+    query += " GROUP BY r.shared_object_text, r.shared_object_type"
+    query += " HAVING COUNT(DISTINCT r.id) >= ?"
+    params.append(min_runs)
+
+    query += " ORDER BY (avg_score IS NULL), avg_score DESC LIMIT ?"
+    params.append(limit)
+
+    cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return [_row_to_shared_object_performance(row) for row in rows]
