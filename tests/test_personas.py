@@ -133,8 +133,8 @@ def test_informed_selection_favors_high_scoring_pairings() -> None:
             high_count += 1
 
     # High-scoring pairing should be selected much more often than uniform
-    # (uniform would be ~1/55 ≈ 1.8%, we expect >> 10%)
-    assert high_count > trials * 0.10
+    # (uniform would be ~1/231 ≈ 0.4%, we expect >> 2%)
+    assert high_count > trials * 0.02
 
 
 def test_informed_selection_respects_exploration_rate() -> None:
