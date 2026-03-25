@@ -1,0 +1,16 @@
+{% if pairings %}
+{% for p in pairings %}
+<tr>
+    <td>{{ p.persona_a_name }}</td>
+    <td>{{ p.persona_b_name }}</td>
+    <td>{{ p.total_runs }}</td>
+    <td>{{ p.concepts_kept }}</td>
+    <td>{{ p.concepts_discarded }}</td>
+    <td>{% if p.avg_score is not none %}{{ "%.1f"|format(p.avg_score) }}{% else %}&mdash;{% endif %}</td>
+    <td>{% if p.max_score is not none %}{{ "%.1f"|format(p.max_score) }}{% else %}&mdash;{% endif %}</td>
+    <td>{% if p.kept_rate is not none %}<span class="score {% if p.kept_rate >= 0.5 %}score-high{% elif p.kept_rate >= 0.25 %}score-mid{% else %}score-low{% endif %}">{{ "%.0f"|format(p.kept_rate * 100) }}%</span>{% else %}&mdash;{% endif %}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="8">No pairing data available.</td></tr>
+{% endif %}

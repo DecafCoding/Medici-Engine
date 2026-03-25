@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Insights — Medici Engine{% endblock %}
+
+{% block heading %}Insights{% endblock %}
+
+{% block content %}
+{% if domains|length > 1 %}
+<div class="filter-controls form-row">
+    <div>
+        <label for="domain-filter">Domain</label>
+        <select name="domain" id="domain-filter"
+                hx-get="/ui/insights/pairings"
+                hx-target="#pairing-table-body"
+                hx-swap="innerHTML">
+            <option value="" {% if not current_domain %}selected{% endif %}>All Domains</option>
+            {% for d in domains %}
+            <option value="{{ d.name }}" {% if current_domain == d.name %}selected{% endif %}>{{ d.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+<!-- Hidden second request to update shared objects table on domain change -->
+<select name="domain" id="domain-filter-mirror" style="display:none"
+        hx-get="/ui/insights/shared-objects"
+        hx-target="#shared-object-table-body"
+        hx-swap="innerHTML">
+</select>
+<script>
+    document.getElementById('domain-filter').addEventListener('change', function() {
+        var mirror = document.getElementById('domain-filter-mirror');
+        mirror.value = this.value;
+        mirror.dispatchEvent(new Event('change'));
+    });
+</script>
+{% endif %}
+
+<h2 class="mt-2">Pairing Performance</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Persona A</th>
+            <th>Persona B</th>
+            <th>Runs</th>
+            <th>Kept</th>
+            <th>Discarded</th>
+            <th>Avg Score</th>
+            <th>Max Score</th>
+            <th>Kept Rate</th>
+        </tr>
+    </thead>
+    <tbody id="pairing-table-body">
+        {% include "fragments/pairing_rows.html" %}
+    </tbody>
+</table>
+
+<h2 class="mt-2">Shared Object Performance</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Shared Object</th>
+            <th>Type</th>
+            <th>Runs</th>
+            <th>Kept</th>
+            <th>Discarded</th>
+            <th>Avg Score</th>
+            <th>Kept Rate</th>
+        </tr>
+    </thead>
+    <tbody id="shared-object-table-body">
+        {% include "fragments/shared_object_rows.html" %}
+    </tbody>
+</table>
+{% endblock %}

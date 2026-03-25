@@ -1,0 +1,15 @@
+{% if shared_objects %}
+{% for s in shared_objects %}
+<tr>
+    <td>{{ s.shared_object_text[:80] }}{% if s.shared_object_text|length > 80 %}...{% endif %}</td>
+    <td>{{ s.shared_object_type }}</td>
+    <td>{{ s.total_runs }}</td>
+    <td>{{ s.concepts_kept }}</td>
+    <td>{{ s.concepts_discarded }}</td>
+    <td>{% if s.avg_score is not none %}{{ "%.1f"|format(s.avg_score) }}{% else %}&mdash;{% endif %}</td>
+    <td>{% if s.kept_rate is not none %}<span class="score {% if s.kept_rate >= 0.5 %}score-high{% elif s.kept_rate >= 0.25 %}score-mid{% else %}score-low{% endif %}">{{ "%.0f"|format(s.kept_rate * 100) }}%</span>{% else %}&mdash;{% endif %}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="7">No shared object data available.</td></tr>
+{% endif %}
