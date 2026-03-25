@@ -25,6 +25,7 @@ from src.db.queries import (
     create_run,
     create_score,
     fail_run,
+    get_pairing_scores,
     get_recent_pairings,
     increment_batch_completed,
     increment_batch_failed,
@@ -36,6 +37,7 @@ from src.engine.conversation import ConversationRunner
 from src.engine.models import ConversationConfig, ConversationRequest
 from src.personas.library import (
     get_all_shared_objects,
+    get_informed_persona_pair,
     get_persona_by_name,
     get_persona_pair,
     get_random_shared_object,
@@ -90,7 +92,7 @@ class BatchRunner:
             run_id: UUID | None = None
             try:
                 # 1. Select persona pair
-                persona_a, persona_b = await self._select_personas(request, i)
+                persona_a, persona_b = await self._select_personas(request, i, domain)
 
                 # 2. Select shared object
                 if request.shared_object_indices is not None:
@@ -186,12 +188,15 @@ class BatchRunner:
             extra={"batch_id": str(batch_id)},
         )
 
-    async def _select_personas(self, request: BatchRequest, index: int) -> tuple:
+    async def _select_personas(
+        self, request: BatchRequest, index: int, domain: DomainConfig
+    ) -> tuple:
         """Select a persona pair for a given conversation index.
 
         Args:
             request: Batch configuration with optional persona pairs.
             index: Current conversation index in the batch.
+            domain: Active domain configuration for score lookups.
 
         Returns:
             Tuple of two Persona objects.
@@ -210,6 +215,11 @@ class BatchRunner:
             return persona_a, persona_b
 
         recent = await get_recent_pairings(self._db)
+
+        if request.use_informed_selection:
+            scores = await get_pairing_scores(self._db, domain=domain.name)
+            return get_informed_persona_pair(scores, recent)
+
         return get_persona_pair(recent)
 
     async def _run_synthesis(

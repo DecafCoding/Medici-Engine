@@ -15,6 +15,7 @@ from src.db.queries import (
     create_run,
     create_score,
     get_pairing_performance,
+    get_pairing_scores,
     get_shared_object_performance,
     update_concept_status,
 )
@@ -315,3 +316,35 @@ async def test_shared_object_performance_filters_by_domain(db) -> None:
     results = await get_shared_object_performance(db, domain="sci-fi-concepts")
     assert len(results) == 1
     assert results[0].avg_score == 9.0
+
+
+# ── Pairing Scores Dict Tests ────────────────────────
+
+
+async def test_get_pairing_scores_returns_dict(db) -> None:
+    """Returns a dict mapping sorted pairing tuples to avg scores."""
+    await _seed_full_pipeline(
+        db,
+        persona_a="physicist",
+        persona_b="builder",
+        score_value=8.0,
+    )
+    await _seed_full_pipeline(
+        db,
+        persona_a="physicist",
+        persona_b="builder",
+        score_value=6.0,
+    )
+
+    result = await get_pairing_scores(db)
+    assert isinstance(result, dict)
+    key = ("builder", "physicist")  # sorted
+    assert key in result
+    assert result[key] == 7.0
+    assert len(result) == 1
+
+
+async def test_get_pairing_scores_empty_db(db) -> None:
+    """Returns empty dict when no scored concepts exist."""
+    result = await get_pairing_scores(db)
+    assert result == {}

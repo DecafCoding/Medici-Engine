@@ -147,6 +147,62 @@ async def test_batch_form_submission(client, db) -> None:
     assert "batch-status" in response.text or "Batch" in response.text
 
 
+async def test_batch_form_with_informed_selection(client, db) -> None:
+    """Verify the informed selection checkbox is parsed and passed to BatchRunner."""
+    with patch("src.ui.routes.BatchRunner") as mock_runner_cls:
+        mock_instance = mock_runner_cls.return_value
+        mock_instance.run_batch = AsyncMock()
+
+        response = await client.post(
+            "/ui/batch",
+            data={
+                "num_conversations": "1",
+                "turns_per_agent": "5",
+                "persona_a": "",
+                "persona_b": "",
+                "shared_object": "",
+                "use_informed_selection": "1",
+            },
+        )
+
+    assert response.status_code == 200
+    # Verify run_batch was called with a request that has informed selection enabled
+    call_args = mock_instance.run_batch.call_args
+    batch_request = call_args[0][0]
+    assert batch_request.use_informed_selection is True
+
+
+async def test_batch_form_without_informed_selection(client, db) -> None:
+    """Verify informed selection defaults to False when checkbox is unchecked."""
+    with patch("src.ui.routes.BatchRunner") as mock_runner_cls:
+        mock_instance = mock_runner_cls.return_value
+        mock_instance.run_batch = AsyncMock()
+
+        response = await client.post(
+            "/ui/batch",
+            data={
+                "num_conversations": "1",
+                "turns_per_agent": "5",
+                "persona_a": "",
+                "persona_b": "",
+                "shared_object": "",
+            },
+        )
+
+    assert response.status_code == 200
+    call_args = mock_instance.run_batch.call_args
+    batch_request = call_args[0][0]
+    assert batch_request.use_informed_selection is False
+
+
+async def test_batch_setup_shows_informed_selection_checkbox(client) -> None:
+    """Verify the batch setup page contains the informed selection checkbox."""
+    response = await client.get("/ui/batch")
+    assert response.status_code == 200
+    assert "use_informed_selection" in response.text
+    assert "performance-informed" in response.text
+
+
 async def test_batch_status_endpoint(client, db) -> None:
     """Verify the batch status polling endpoint returns progress HTML."""
     batch = await create_batch(db, BatchCreate(total_runs=3))

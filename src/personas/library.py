@@ -906,6 +906,93 @@ def get_persona_pair(
     return pair
 
 
+def get_informed_persona_pair(
+    pairing_scores: dict[tuple[str, str], float],
+    recent_pairings: list[tuple[str, str]] | None = None,
+    exploration_rate: float = 0.2,
+) -> tuple[Persona, Persona]:
+    """Select two personas weighted by historical performance scores.
+
+    With probability `exploration_rate`, picks a random pairing to
+    maintain variance. Otherwise, selects from available pairings
+    weighted by their average score — higher-scoring pairings are
+    more likely to be chosen.
+
+    Args:
+        pairing_scores: Dict mapping sorted (name_a, name_b) tuples
+            to average scores from past runs.
+        recent_pairings: List of (name_a, name_b) tuples from
+            recent runs, with names in sorted order.
+        exploration_rate: Probability of picking a random pairing
+            instead of using weighted selection. Default 0.2.
+
+    Returns:
+        Tuple of two distinct Persona objects.
+    """
+    if recent_pairings is None:
+        recent_pairings = []
+
+    recent_set = {tuple(sorted(p)) for p in recent_pairings}
+
+    # Build all possible pairings
+    all_pairs: list[tuple[Persona, Persona]] = []
+    for i, a in enumerate(PERSONAS):
+        for b in PERSONAS[i + 1 :]:
+            all_pairs.append((a, b))
+
+    # Filter out recently used pairings
+    available = [
+        (a, b)
+        for a, b in all_pairs
+        if tuple(sorted([a.name, b.name])) not in recent_set
+    ]
+
+    if not available:
+        logger.warning(
+            "All persona pairings used recently, selecting from full library"
+        )
+        available = all_pairs
+
+    # Exploration: pick a random pairing
+    if random.random() < exploration_rate:
+        pair = random.choice(available)
+        logger.info(
+            "Exploration: selected random persona pair",
+            extra={
+                "persona_a": pair[0].name,
+                "persona_b": pair[1].name,
+            },
+        )
+    else:
+        # Exploitation: weight by score
+        known_scores = list(pairing_scores.values())
+        neutral_weight = (
+            sorted(known_scores)[len(known_scores) // 2] if known_scores else 5.0
+        )
+
+        weights: list[float] = []
+        for a, b in available:
+            key = tuple(sorted([a.name, b.name]))
+            score = pairing_scores.get(key, neutral_weight)
+            # Ensure minimum weight of 0.1
+            weights.append(max(score, 0.1))
+
+        pair = random.choices(available, weights=weights, k=1)[0]
+        logger.info(
+            "Exploitation: selected weighted persona pair",
+            extra={
+                "persona_a": pair[0].name,
+                "persona_b": pair[1].name,
+            },
+        )
+
+    # Randomize which persona goes first
+    if random.random() < 0.5:
+        pair = (pair[1], pair[0])
+
+    return pair
+
+
 def get_random_shared_object() -> SharedObject:
     """Select a random shared object from the pool."""
     return random.choice(SHARED_OBJECTS)
