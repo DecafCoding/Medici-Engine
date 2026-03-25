@@ -21,6 +21,7 @@ from src.db.queries import (
     get_runs_by_batch_id,
     get_scores,
 )
+from src.domains.sci_fi_concepts import SCI_FI_CONCEPTS
 from src.engine.conversation import ConversationError
 
 
@@ -34,20 +35,20 @@ def mock_conversation_runner(test_transcript):
 
 
 @pytest.fixture
-def mock_synthesizer(test_concept_extraction):
-    """Mock Synthesizer.synthesize to return a fixed extraction."""
+def mock_synthesizer(test_extraction_result):
+    """Mock Synthesizer.synthesize to return a fixed extraction dict."""
     with patch("src.batch.runner.Synthesizer") as mock_cls:
         instance = mock_cls.return_value
-        instance.synthesize = AsyncMock(return_value=test_concept_extraction)
+        instance.synthesize = AsyncMock(return_value=test_extraction_result)
         yield instance
 
 
 @pytest.fixture
-def mock_scorer(test_concept_scoring):
+def mock_scorer(test_scoring_result):
     """Mock Scorer.score to return a fixed scoring result."""
     with patch("src.batch.runner.Scorer") as mock_cls:
         instance = mock_cls.return_value
-        instance.score = AsyncMock(return_value=test_concept_scoring)
+        instance.score = AsyncMock(return_value=test_scoring_result)
         yield instance
 
 
@@ -71,6 +72,13 @@ def api_key_empty():
         mock_settings.conversation_repetition_penalty = 1.15
         mock_settings.conversation_max_tokens = 512
         yield mock_settings
+
+
+@pytest.fixture(autouse=True)
+def mock_active_domain():
+    """Mock get_active_domain to return the sci-fi domain in all batch tests."""
+    with patch("src.batch.runner.get_active_domain", return_value=SCI_FI_CONCEPTS):
+        yield
 
 
 async def _create_test_batch(db, num_runs: int) -> UUID:

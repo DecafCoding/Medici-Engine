@@ -195,3 +195,17 @@ def test_scoring_does_not_import_synthesis() -> None:
         assert "import src.synthesis" not in source, (
             f"src/scoring/{py_file.name} must not import src.synthesis"
         )
+
+
+# ── Domain Boundary Tests ────────────────────────────
+
+
+def test_domains_has_no_llm_imports() -> None:
+    """Verify the domains module makes no LLM calls."""
+    domains_dir = Path("src/domains")
+    if not domains_dir.exists():
+        return
+    imports = _get_all_imports_in_dir(domains_dir)
+    assert "openai" not in imports, (
+        "src/domains/ must not import openai — it is pure configuration"
+    )

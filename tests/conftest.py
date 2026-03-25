@@ -12,12 +12,17 @@ import aiosqlite
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from src.db.queries import Turn
+from src.db.queries import AxisScoreRecord, Turn
 from src.db.schema import init_schema
+from src.domains.models import (
+    DomainConfig,
+    create_extraction_model,
+    create_scoring_model,
+)
+from src.domains.sci_fi_concepts import SCI_FI_CONCEPTS
 from src.main import app
 from src.personas.models import Persona, SharedObject
-from src.scoring.models import AxisScore, ConceptScoring
-from src.synthesis.models import ConceptExtraction
+from src.scoring.models import AxisScore
 
 
 @pytest.fixture
@@ -76,6 +81,12 @@ def test_shared_object() -> SharedObject:
 
 
 @pytest.fixture
+def test_domain() -> DomainConfig:
+    """Provide the sci-fi domain configuration for tests."""
+    return SCI_FI_CONCEPTS
+
+
+@pytest.fixture
 def mock_openai_response():
     """Create a factory for mock OpenAI chat completion responses."""
 
@@ -90,53 +101,43 @@ def mock_openai_response():
 
 
 @pytest.fixture
-def mock_parse_response():
-    """Create a factory for mock OpenAI structured output parse responses."""
-
-    def _make_response(
-        extraction: ConceptExtraction | None = None,
-        refusal: str | None = None,
-    ) -> MagicMock:
-        response = MagicMock()
-        choice = MagicMock()
-        choice.message.parsed = extraction
-        choice.message.refusal = refusal
-        response.choices = [choice]
-        return response
-
-    return _make_response
-
-
-@pytest.fixture
-def test_concept_extraction() -> ConceptExtraction:
-    """Provide a sample concept extraction for synthesis tests."""
-    return ConceptExtraction(
-        title="The Architecture of Forgetting",
-        premise=(
+def test_extraction_result() -> dict[str, str]:
+    """Provide a sample extraction result dict for synthesis tests."""
+    return {
+        "title": "The Architecture of Forgetting",
+        "premise": (
             "A civilization discovers that its most enduring structures were "
             "never designed to last — they survived because they encoded a "
             "pattern of deliberate decay that mimics biological adaptation."
         ),
-        originality=(
+        "originality": (
             "Combines structural engineering's concept of load-bearing failure "
             "points with information theory's erasure coding — neither domain "
             "alone would produce the idea of a building that preserves itself "
             "by strategically forgetting parts of its own blueprint."
         ),
-    )
+    }
 
 
 @pytest.fixture
-def mock_scoring_response():
-    """Create a factory for mock OpenAI structured output scoring responses."""
+def mock_parse_response(test_domain):
+    """Create a factory for mock OpenAI structured output parse responses.
+
+    Returns responses whose .parsed is a dynamic model instance built
+    from the domain's extraction fields.
+    """
+    extraction_model = create_extraction_model(test_domain)
 
     def _make_response(
-        scoring: ConceptScoring | None = None,
+        extraction: dict[str, str] | None = None,
         refusal: str | None = None,
     ) -> MagicMock:
         response = MagicMock()
         choice = MagicMock()
-        choice.message.parsed = scoring
+        if extraction is not None:
+            choice.message.parsed = extraction_model(**extraction)
+        else:
+            choice.message.parsed = None
         choice.message.refusal = refusal
         response.choices = [choice]
         return response
@@ -145,11 +146,12 @@ def mock_scoring_response():
 
 
 @pytest.fixture
-def test_concept_scoring() -> ConceptScoring:
-    """Provide a sample concept scoring for scorer tests."""
-    return ConceptScoring(
-        uniqueness=AxisScore(
+def test_scoring_result() -> list[AxisScoreRecord]:
+    """Provide a sample scoring result for scorer tests."""
+    return [
+        AxisScoreRecord(
             axis="uniqueness",
+            label="Uniqueness",
             score=8.5,
             reasoning=(
                 "The concept of buildings that preserve themselves through "
@@ -157,8 +159,9 @@ def test_concept_scoring() -> ConceptScoring:
                 "explores erasure coding as an architectural principle."
             ),
         ),
-        plausibility=AxisScore(
+        AxisScoreRecord(
             axis="plausibility",
+            label="Scientific Plausibility",
             score=6.0,
             reasoning=(
                 "The underlying information theory is sound, but the leap "
@@ -166,8 +169,9 @@ def test_concept_scoring() -> ConceptScoring:
                 "failure requires generous extrapolation."
             ),
         ),
-        compelling_factor=AxisScore(
+        AxisScoreRecord(
             axis="compelling_factor",
+            label="Compelling Factor",
             score=7.5,
             reasoning=(
                 "The idea that forgetting is a form of preservation is "
@@ -175,7 +179,41 @@ def test_concept_scoring() -> ConceptScoring:
                 "would want answered."
             ),
         ),
-    )
+    ]
+
+
+@pytest.fixture
+def mock_scoring_parse_response(test_domain):
+    """Create a factory for mock OpenAI structured scoring parse responses.
+
+    Returns responses whose .parsed is a dynamic scoring model instance
+    built from the domain's scoring axes.
+    """
+    scoring_model = create_scoring_model(test_domain)
+
+    def _make_response(
+        scores: list[AxisScoreRecord] | None = None,
+        refusal: str | None = None,
+    ) -> MagicMock:
+        response = MagicMock()
+        choice = MagicMock()
+        if scores is not None:
+            # Build kwargs: {axis_name: AxisScore(axis=..., score=..., reasoning=...)}
+            kwargs = {}
+            for s in scores:
+                kwargs[s.axis] = AxisScore(
+                    axis=s.axis,
+                    score=s.score,
+                    reasoning=s.reasoning,
+                )
+            choice.message.parsed = scoring_model(**kwargs)
+        else:
+            choice.message.parsed = None
+        choice.message.refusal = refusal
+        response.choices = [choice]
+        return response
+
+    return _make_response
 
 
 @pytest.fixture
