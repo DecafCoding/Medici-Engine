@@ -82,6 +82,9 @@ async def launch_batch(
     if persona_a and persona_b:
         persona_pairs = [(persona_a, persona_b)]
 
+    # Parse informed selection checkbox (absent when unchecked)
+    use_informed_selection = bool(form.get("use_informed_selection", ""))
+
     # Parse shared object selection (empty string = random)
     shared_object_str = str(form.get("shared_object", ""))
     shared_object_indices: list[int] | None = None
@@ -97,6 +100,7 @@ async def launch_batch(
         shared_object_indices=shared_object_indices,
         num_conversations=num_conversations,
         turns_per_agent=turns_per_agent,
+        use_informed_selection=use_informed_selection,
     )
 
     runner = BatchRunner(db)

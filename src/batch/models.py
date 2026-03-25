@@ -34,3 +34,7 @@ class BatchRequest(BaseModel):
         default=5,
         description="Turns per agent per conversation",
     )
+    use_informed_selection: bool = Field(
+        default=False,
+        description="Use performance-weighted persona selection instead of random",
+    )

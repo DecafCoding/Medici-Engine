@@ -394,6 +394,42 @@ async def test_batch_all_conversations_fail(
     assert batch.failed_runs == 2
 
 
+async def test_batch_with_informed_selection(
+    db,
+    mock_conversation_runner,
+    mock_synthesizer,
+    mock_scorer,
+    api_key_set,
+):
+    """Informed selection uses get_informed_persona_pair, not random."""
+    batch_id = await _create_test_batch(db, 1)
+    request = BatchRequest(
+        num_conversations=1,
+        turns_per_agent=5,
+        use_informed_selection=True,
+    )
+
+    with (
+        patch("src.batch.runner.get_informed_persona_pair") as mock_informed,
+        patch(
+            "src.batch.runner.get_pairing_scores",
+            new_callable=AsyncMock,
+        ) as mock_scores,
+        patch("src.batch.runner.get_persona_pair") as mock_random,
+    ):
+        from src.personas.library import PERSONAS
+
+        mock_scores.return_value = {}
+        mock_informed.return_value = (PERSONAS[0], PERSONAS[1])
+
+        runner = BatchRunner(db)
+        await runner.run_batch(request, batch_id)
+
+        mock_informed.assert_called_once()
+        mock_random.assert_not_called()
+        mock_scores.assert_called_once()
+
+
 async def test_batch_with_specified_shared_objects(
     db,
     mock_conversation_runner,

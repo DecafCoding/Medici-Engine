@@ -780,6 +780,50 @@ async def get_pairing_performance(
     return [_row_to_pairing_performance(row) for row in rows]
 
 
+async def get_pairing_scores(
+    db: aiosqlite.Connection,
+    domain: str | None = None,
+) -> dict[tuple[str, str], float]:
+    """Fetch average scores per persona pairing as a simple dict.
+
+    Returns a dict mapping sorted (name_a, name_b) tuples to their
+    average overall score. Only includes pairings that have at least
+    one scored concept. Used by the informed selection logic.
+
+    Args:
+        db: Database connection.
+        domain: Optional filter by concept domain.
+
+    Returns:
+        Dict of {(persona_a, persona_b): avg_score}.
+    """
+    query = (
+        "SELECT "
+        "  MIN(r.persona_a_name, r.persona_b_name) AS persona_a_name, "
+        "  MAX(r.persona_a_name, r.persona_b_name) AS persona_b_name, "
+        "  ROUND(AVG(s.overall_score), 2) AS avg_score "
+        "FROM runs r "
+        "JOIN concepts c ON c.run_id = r.id "
+        "JOIN scores s ON s.concept_id = c.id"
+    )
+
+    params: list[str] = []
+    if domain:
+        query += " WHERE c.domain = ?"
+        params.append(domain)
+
+    query += (
+        " GROUP BY MIN(r.persona_a_name, r.persona_b_name), "
+        "MAX(r.persona_a_name, r.persona_b_name)"
+    )
+
+    cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return {
+        (row["persona_a_name"], row["persona_b_name"]): row["avg_score"] for row in rows
+    }
+
+
 def _row_to_shared_object_performance(
     row: aiosqlite.Row,
 ) -> SharedObjectPerformance:

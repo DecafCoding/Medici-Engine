@@ -3,6 +3,7 @@
 from src.personas.library import (
     get_all_personas,
     get_all_shared_objects,
+    get_informed_persona_pair,
     get_persona_by_name,
     get_persona_pair,
     get_random_shared_object,
@@ -98,3 +99,92 @@ def test_get_random_shared_object_returns_valid() -> None:
     assert isinstance(obj, SharedObject)
     assert len(obj.text) > 20
     assert obj.object_type in ("scenario", "question", "problem", "image_description")
+
+
+# ── Informed Selection Tests ──────────────────────────
+
+
+def test_informed_selection_with_no_scores_falls_back_to_random() -> None:
+    """Empty scores dict still returns a valid persona pair."""
+    a, b = get_informed_persona_pair(pairing_scores={})
+    assert a.name != b.name
+    assert a in get_all_personas()
+    assert b in get_all_personas()
+
+
+def test_informed_selection_favors_high_scoring_pairings() -> None:
+    """High-scoring pairings are selected significantly more often."""
+    personas = get_all_personas()
+    high_pair = tuple(sorted([personas[0].name, personas[1].name]))
+    scores: dict[tuple[str, str], float] = {high_pair: 9.0}
+    # Give all other pairings a low score
+    for i, a in enumerate(personas):
+        for b in personas[i + 1 :]:
+            key = tuple(sorted([a.name, b.name]))
+            if key != high_pair:
+                scores[key] = 1.0
+
+    high_count = 0
+    trials = 200
+    for _ in range(trials):
+        a, b = get_informed_persona_pair(scores, exploration_rate=0.0)
+        selected = tuple(sorted([a.name, b.name]))
+        if selected == high_pair:
+            high_count += 1
+
+    # High-scoring pairing should be selected much more often than uniform
+    # (uniform would be ~1/55 ≈ 1.8%, we expect >> 10%)
+    assert high_count > trials * 0.10
+
+
+def test_informed_selection_respects_exploration_rate() -> None:
+    """With exploration_rate=1.0, selection is effectively random."""
+    personas = get_all_personas()
+    high_pair = tuple(sorted([personas[0].name, personas[1].name]))
+    scores: dict[tuple[str, str], float] = {high_pair: 9.0}
+    for i, a in enumerate(personas):
+        for b in personas[i + 1 :]:
+            key = tuple(sorted([a.name, b.name]))
+            if key != high_pair:
+                scores[key] = 1.0
+
+    high_count = 0
+    trials = 200
+    for _ in range(trials):
+        a, b = get_informed_persona_pair(scores, exploration_rate=1.0)
+        selected = tuple(sorted([a.name, b.name]))
+        if selected == high_pair:
+            high_count += 1
+
+    # With full exploration, distribution should be roughly uniform
+    # High pair should not dominate (< 15% of selections)
+    assert high_count < trials * 0.15
+
+
+def test_informed_selection_avoids_recent_pairings() -> None:
+    """Recent pairings are excluded from informed selection."""
+    personas = get_all_personas()
+    all_pairs = []
+    for i, a in enumerate(personas):
+        for b in personas[i + 1 :]:
+            all_pairs.append(tuple(sorted([a.name, b.name])))
+
+    # Mark all but one as recent
+    recent = list(all_pairs[:-1])
+    remaining = all_pairs[-1]
+
+    a, b = get_informed_persona_pair(pairing_scores={}, recent_pairings=recent)
+    selected = tuple(sorted([a.name, b.name]))
+    assert selected == remaining
+
+
+def test_informed_selection_handles_all_recent() -> None:
+    """Falls back to full library when all pairings are recent."""
+    personas = get_all_personas()
+    all_pairs = []
+    for i, a in enumerate(personas):
+        for b in personas[i + 1 :]:
+            all_pairs.append(tuple(sorted([a.name, b.name])))
+
+    a, b = get_informed_persona_pair(pairing_scores={}, recent_pairings=all_pairs)
+    assert a.name != b.name
