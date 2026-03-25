@@ -87,20 +87,57 @@ Batch runs can optionally use **performance-informed selection**, which weights 
 
 ## Setup
 
+### Prerequisites
+
+- **Python 3.12** — [python.org/downloads](https://www.python.org/downloads/)
+- **uv** — [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/)
+- **Git** — [git-scm.com](https://git-scm.com/)
+- **OpenAI API key** — required for synthesis and scoring
+- **vLLM server** — required for local conversation inference (see [Infrastructure](#infrastructure))
+
+### 1. Clone the repository
+
 ```bash
-# Install dependencies
+git clone https://github.com/DecafCoding/Medici-Engine.git
+cd Medici-Engine
+```
+
+### 2. Install dependencies
+
+```bash
 uv sync
+```
 
-# Copy environment config
+### 3. Configure environment
+
+```bash
 cp .env.example .env
-# Edit .env with your OpenAI API key and vLLM settings
+```
 
-# Run tests
+Edit `.env` and set at minimum:
+- `OPENAI_API_KEY` — your OpenAI API key
+- `VLLM_BASE_URL` — your vLLM server endpoint (default: `http://localhost:8000/v1`)
+- `CONVERSATION_MODEL` — the model name served by vLLM (default: `MythoMax-L2-13B`)
+
+See `.env.example` for the full list of configurable variables.
+
+### 4. Initialize the database
+
+The SQLite database is created automatically on first startup at the path specified by `DATABASE_PATH` (default: `data/yield_engine.db`).
+
+### 5. Run tests
+
+```bash
 uv run pytest
+```
 
-# Start the API server
+### 6. Start the server
+
+```bash
 uv run uvicorn src.main:app --reload
 ```
+
+The API and UI will be available at `http://localhost:8000`. The review UI is at `/ui/review` and the insights dashboard is at `/ui/insights`.
 
 ## Configuration
 
