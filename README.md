@@ -134,10 +134,10 @@ uv run pytest
 ### 6. Start the server
 
 ```bash
-uv run uvicorn src.main:app --reload
+uv run python -m src.main
 ```
 
-The API and UI will be available at `http://localhost:8000`. The review UI is at `/ui/review` and the insights dashboard is at `/ui/insights`.
+The API and UI will be available at `http://localhost:8080`. The review UI is at `/ui/review` and the insights dashboard is at `/ui/insights`.
 
 ## Configuration
 
@@ -145,6 +145,8 @@ Key environment variables (see `.env.example` for the full list):
 
 | Variable | Default | Description |
 |---|---|---|
+| `APP_HOST` | `127.0.0.1` | Server host (`0.0.0.0` for network access) |
+| `APP_PORT` | `8080` | Server port |
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | Local vLLM server endpoint |
 | `CONVERSATION_MODEL` | `MythoMax-L2-13B` | Model served by vLLM |
 | `OPENAI_API_KEY` | — | API key for synthesis and scoring |

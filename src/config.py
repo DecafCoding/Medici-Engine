@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     development.
     """
 
+    # Application server
+    app_host: str = Field(
+        default="127.0.0.1",
+        description="Host address for the application server",
+    )
+    app_port: int = Field(
+        default=8080,
+        description="Port for the application server",
+    )
+
     # vLLM local inference
     vllm_base_url: str = Field(
         default="http://localhost:8000/v1",

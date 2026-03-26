@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import aiosqlite
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -90,3 +91,12 @@ async def health(request: Request) -> dict[str, str]:
     async with request.app.state.db.execute("SELECT 1") as cursor:
         await cursor.fetchone()
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "src.main:app",
+        host=settings.app_host,
+        port=settings.app_port,
+        reload=True,
+    )
