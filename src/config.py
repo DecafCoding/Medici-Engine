@@ -60,6 +60,10 @@ class Settings(BaseSettings):
         default="o3",
         description="OpenAI model for scoring",
     )
+    scoring_temperature: float | None = Field(
+        default=None,
+        description="Temperature for scoring (None lets the model use its default)",
+    )
 
     # Domain
     active_domain: str = Field(
