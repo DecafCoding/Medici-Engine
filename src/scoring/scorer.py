@@ -85,12 +85,17 @@ class Scorer:
         # Build the response_format model dynamically from domain config
         scoring_model = create_scoring_model(self._domain)
 
+        # Some models (e.g. o3) only accept their default temperature
+        optional_params: dict = {}
+        if settings.scoring_temperature is not None:
+            optional_params["temperature"] = settings.scoring_temperature
+
         try:
             response = await self._client.beta.chat.completions.parse(
                 model=settings.scoring_model,
                 messages=messages,
                 response_format=scoring_model,
-                temperature=0.3,
+                **optional_params,
             )
         except APIConnectionError as e:
             raise EvaluationError(f"Cannot reach OpenAI API: {e}") from e
