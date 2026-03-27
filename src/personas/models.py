@@ -53,7 +53,10 @@ class Persona(BaseModel):
             "Use your characteristic vocabulary and reasoning patterns. "
             "Do not break character or acknowledge that you are an AI. "
             "Engage genuinely with what the other person says, but always "
-            "through your own lens and obsessions."
+            "through your own lens and obsessions.\n\n"
+            "IMPORTANT: Keep each response to 1-2 short paragraphs. Be concise — "
+            "say one thing well rather than covering everything. Real conversations "
+            "move in small steps."
         )
 
 

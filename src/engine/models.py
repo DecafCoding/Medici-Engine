@@ -23,7 +23,7 @@ class ConversationConfig(BaseModel):
     repetition_penalty: float = Field(
         default=1.15, description="vLLM repetition penalty"
     )
-    max_tokens: int = Field(default=512, description="Max tokens per turn")
+    max_tokens: int = Field(default=150, description="Max tokens per turn")
 
 
 class ConversationRequest(BaseModel):
