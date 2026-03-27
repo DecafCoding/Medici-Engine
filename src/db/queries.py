@@ -143,6 +143,7 @@ class ConceptWithScore(BaseModel):
     status: str
     created_at: str
     overall_score: float | None = None
+    axes: list[AxisScoreRecord] | None = None
 
 
 class PairingPerformance(BaseModel):
@@ -227,6 +228,11 @@ def _row_to_batch(row: aiosqlite.Row) -> Batch:
 
 def _row_to_concept_with_score(row: aiosqlite.Row) -> ConceptWithScore:
     """Map a joined concept+score row to a ConceptWithScore model."""
+    axes = None
+    axes_json = row["axes_json"]
+    if axes_json:
+        axes = [AxisScoreRecord(**a) for a in json.loads(axes_json)]
+
     return ConceptWithScore(
         id=UUID(row["id"]),
         run_id=UUID(row["run_id"]),
@@ -236,6 +242,7 @@ def _row_to_concept_with_score(row: aiosqlite.Row) -> ConceptWithScore:
         status=row["status"],
         created_at=row["created_at"],
         overall_score=row["overall_score"],
+        axes=axes,
     )
 
 
@@ -666,7 +673,7 @@ async def get_concepts_with_scores(
         List of concepts with their score data attached.
     """
     base_query = (
-        "SELECT c.*, s.overall_score "
+        "SELECT c.*, s.overall_score, s.axes_json "
         "FROM concepts c "
         "LEFT JOIN scores s ON s.concept_id = c.id"
     )

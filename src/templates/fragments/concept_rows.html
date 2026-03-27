@@ -9,11 +9,17 @@
     {% else %}
     <td>&mdash;</td>
     {% endif %}
-    <td>{% if c.overall_score is not none %}{{ "%.1f"|format(c.overall_score) }}{% else %}&mdash;{% endif %}</td>
+    {% if c.axes %}
+    {% for axis_score in c.axes %}
+    <td><span class="score {% if axis_score.score >= 7 %}score-high{% elif axis_score.score >= 4 %}score-mid{% else %}score-low{% endif %}">{{ "%.1f"|format(axis_score.score) }}</span></td>
+    {% endfor %}
+    {% else %}
+    {% for _ in domain.scoring_axes %}<td>&mdash;</td>{% endfor %}
+    {% endif %}
     <td>{% with concept=c %}{% include "fragments/concept_status.html" %}{% endwith %}</td>
     <td>{{ c.created_at[:10] }}</td>
 </tr>
 {% endfor %}
 {% else %}
-<tr><td colspan="5">No concepts found.</td></tr>
+<tr><td colspan="{{ 4 + domain.scoring_axes|length }}">No concepts found.</td></tr>
 {% endif %}
