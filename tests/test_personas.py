@@ -108,7 +108,7 @@ def test_informed_selection_favors_high_scoring_pairings() -> None:
                 scores[key] = 1.0
 
     high_count = 0
-    trials = 200
+    trials = 1000
     for _ in range(trials):
         a, b = get_informed_persona_pair(scores, exploration_rate=0.0)
         selected = tuple(sorted([a.name, b.name]))
@@ -117,6 +117,8 @@ def test_informed_selection_favors_high_scoring_pairings() -> None:
 
     # High-scoring pairing should be selected much more often than uniform
     # (uniform would be ~1/231 ≈ 0.4%, we expect >> 2%)
+    # With 9:1 weighting across 231 pairings, P(high) ≈ 3.8%, so 1000
+    # trials gives ~38 expected hits — asserting >2% is very stable.
     assert high_count > trials * 0.02
 
 
