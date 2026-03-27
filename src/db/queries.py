@@ -35,8 +35,8 @@ class Run(BaseModel):
     id: UUID
     persona_a_name: str
     persona_b_name: str
-    shared_object_text: str
-    shared_object_type: str
+    situation_text: str
+    situation_type: str
     turns_per_agent: int
     transcript: list[Turn] | None = None
     status: str = Field(default="pending")
@@ -51,8 +51,8 @@ class RunCreate(BaseModel):
 
     persona_a_name: str
     persona_b_name: str
-    shared_object_text: str
-    shared_object_type: str = "scenario"
+    situation_text: str
+    situation_type: str = "generated"
     turns_per_agent: int = 5
     batch_id: UUID | None = None
 
@@ -160,11 +160,11 @@ class PairingPerformance(BaseModel):
     kept_rate: float | None
 
 
-class SharedObjectPerformance(BaseModel):
-    """Aggregated performance metrics for a shared object."""
+class SituationPerformance(BaseModel):
+    """Aggregated performance metrics for a situation."""
 
-    shared_object_text: str
-    shared_object_type: str
+    situation_text: str
+    situation_type: str
     total_runs: int
     completed_runs: int
     concepts_kept: int
@@ -187,8 +187,8 @@ def _row_to_run(row: aiosqlite.Row) -> Run:
         id=UUID(row["id"]),
         persona_a_name=row["persona_a_name"],
         persona_b_name=row["persona_b_name"],
-        shared_object_text=row["shared_object_text"],
-        shared_object_type=row["shared_object_type"],
+        situation_text=row["situation_text"],
+        situation_type=row["situation_type"],
         turns_per_agent=row["turns_per_agent"],
         transcript=transcript,
         status=row["status"],
@@ -271,14 +271,14 @@ async def create_run(db: aiosqlite.Connection, run: RunCreate) -> Run:
     run_id = str(uuid4())
     await db.execute(
         "INSERT INTO runs (id, persona_a_name, persona_b_name, "
-        "shared_object_text, shared_object_type, turns_per_agent, batch_id) "
+        "situation_text, situation_type, turns_per_agent, batch_id) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
         (
             run_id,
             run.persona_a_name,
             run.persona_b_name,
-            run.shared_object_text,
-            run.shared_object_type,
+            run.situation_text,
+            run.situation_type,
             run.turns_per_agent,
             str(run.batch_id) if run.batch_id else None,
         ),
@@ -824,15 +824,15 @@ async def get_pairing_scores(
     }
 
 
-def _row_to_shared_object_performance(
+def _row_to_situation_performance(
     row: aiosqlite.Row,
-) -> SharedObjectPerformance:
-    """Map an aggregated row to a SharedObjectPerformance model."""
+) -> SituationPerformance:
+    """Map an aggregated row to a SituationPerformance model."""
     kept = row["concepts_kept"]
     discarded = row["concepts_discarded"]
-    return SharedObjectPerformance(
-        shared_object_text=row["shared_object_text"],
-        shared_object_type=row["shared_object_type"],
+    return SituationPerformance(
+        situation_text=row["situation_text"],
+        situation_type=row["situation_type"],
         total_runs=row["total_runs"],
         completed_runs=row["completed_runs"],
         concepts_kept=kept,
@@ -843,29 +843,29 @@ def _row_to_shared_object_performance(
     )
 
 
-async def get_shared_object_performance(
+async def get_situation_performance(
     db: aiosqlite.Connection,
     domain: str | None = None,
     min_runs: int = 1,
     limit: int = 50,
-) -> list[SharedObjectPerformance]:
-    """Aggregate concept outcomes and scores by shared object.
+) -> list[SituationPerformance]:
+    """Aggregate concept outcomes and scores by situation.
 
-    Joins runs -> concepts -> scores grouped by shared object text and type.
+    Joins runs -> concepts -> scores grouped by situation text and type.
 
     Args:
         db: Database connection.
         domain: Optional filter by concept domain.
-        min_runs: Minimum number of runs to include a shared object.
+        min_runs: Minimum number of runs to include a situation.
         limit: Maximum number of results.
 
     Returns:
-        List of shared object performance records sorted by avg score descending.
+        List of situation performance records sorted by avg score descending.
     """
     query = (
         "SELECT "
-        "  r.shared_object_text, "
-        "  r.shared_object_type, "
+        "  r.situation_text, "
+        "  r.situation_type, "
         "  COUNT(DISTINCT r.id) AS total_runs, "
         "  COUNT(DISTINCT CASE WHEN r.status = 'completed' "
         "    THEN r.id END) AS completed_runs, "
@@ -884,7 +884,7 @@ async def get_shared_object_performance(
         query += " WHERE c.domain = ?"
         params.append(domain)
 
-    query += " GROUP BY r.shared_object_text, r.shared_object_type"
+    query += " GROUP BY r.situation_text, r.situation_type"
     query += " HAVING COUNT(DISTINCT r.id) >= ?"
     params.append(min_runs)
 
@@ -893,4 +893,4 @@ async def get_shared_object_performance(
 
     cursor = await db.execute(query, params)
     rows = await cursor.fetchall()
-    return [_row_to_shared_object_performance(row) for row in rows]
+    return [_row_to_situation_performance(row) for row in rows]

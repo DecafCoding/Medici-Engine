@@ -28,7 +28,7 @@ async def test_synthesizer_extracts_concept_from_transcript(
             transcript=test_transcript,
             persona_a_name="test_physicist",
             persona_b_name="test_builder",
-            shared_object_text="A bridge that hums.",
+            situation_text="A bridge that hums.",
         )
 
     assert isinstance(result, dict)
@@ -58,7 +58,7 @@ async def test_synthesizer_raises_on_refusal(
             transcript=test_transcript,
             persona_a_name="test_physicist",
             persona_b_name="test_builder",
-            shared_object_text="A bridge that hums.",
+            situation_text="A bridge that hums.",
         )
 
 
@@ -79,7 +79,7 @@ async def test_synthesizer_raises_on_api_connection_error(
             transcript=test_transcript,
             persona_a_name="test_physicist",
             persona_b_name="test_builder",
-            shared_object_text="A bridge that hums.",
+            situation_text="A bridge that hums.",
         )
 
 
@@ -104,7 +104,7 @@ def test_synthesizer_builds_messages_with_system_and_user(
         formatted_transcript=formatted,
         persona_a_name="test_physicist",
         persona_b_name="test_builder",
-        shared_object_text="A bridge that hums.",
+        situation_text="A bridge that hums.",
     )
 
     assert len(messages) == 2

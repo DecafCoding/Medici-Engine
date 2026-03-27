@@ -2,13 +2,10 @@
 
 from src.personas.library import (
     get_all_personas,
-    get_all_shared_objects,
     get_informed_persona_pair,
     get_persona_by_name,
     get_persona_pair,
-    get_random_shared_object,
 )
-from src.personas.models import SharedObject
 
 
 def test_library_has_minimum_personas() -> None:
@@ -85,20 +82,6 @@ def test_persona_generates_system_prompt() -> None:
     assert "VOCABULARY" in prompt
     assert "CORE OBSESSIONS" in prompt
     assert "WAY OF SEEING" in prompt
-
-
-def test_shared_objects_pool_not_empty() -> None:
-    """Verify the shared objects pool has entries."""
-    objects = get_all_shared_objects()
-    assert len(objects) >= 10
-
-
-def test_get_random_shared_object_returns_valid() -> None:
-    """Verify random selection returns a complete shared object."""
-    obj = get_random_shared_object()
-    assert isinstance(obj, SharedObject)
-    assert len(obj.text) > 20
-    assert obj.object_type in ("scenario", "question", "problem", "image_description")
 
 
 # ── Informed Selection Tests ──────────────────────────

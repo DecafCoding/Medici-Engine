@@ -2,7 +2,7 @@
 Shared test fixtures for the Medici Engine test suite.
 
 Provides in-memory database connections, mock vLLM responses,
-mock synthesis responses, and test persona/shared object data.
+mock synthesis responses, and test persona/situation data.
 All LLM calls are mocked — no real inference happens in tests.
 """
 
@@ -21,7 +21,7 @@ from src.domains.models import (
 )
 from src.domains.sci_fi_concepts import SCI_FI_CONCEPTS
 from src.main import app
-from src.personas.models import Persona, SharedObject
+from src.personas.models import Persona, Situation
 from src.scoring.models import AxisScore
 
 
@@ -72,11 +72,11 @@ def test_persona_b() -> Persona:
 
 
 @pytest.fixture
-def test_shared_object() -> SharedObject:
-    """Provide a test shared object for conversation tests."""
-    return SharedObject(
+def test_situation() -> Situation:
+    """Provide a test situation for conversation tests."""
+    return Situation(
         text="A bridge that has stood for a thousand years begins to hum.",
-        object_type="scenario",
+        situation_type="generated",
     )
 
 

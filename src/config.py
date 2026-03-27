@@ -44,7 +44,17 @@ class Settings(BaseSettings):
     )
     conversation_model: str = Field(
         default="MythoMax-L2-13B",
-        description="Model name served by vLLM",
+        description="Model name served by vLLM for conversations",
+    )
+
+    # Situation generation (local inference, may use a different vLLM instance)
+    situation_model_url: str = Field(
+        default="http://localhost:8000/v1",
+        description="Base URL for the vLLM server used for situation generation",
+    )
+    situation_model: str = Field(
+        default="MythoMax-L2-13B",
+        description="Model name for generating persona situations",
     )
 
     # OpenAI API (not used in Feature 1)

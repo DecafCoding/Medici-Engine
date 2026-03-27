@@ -27,15 +27,8 @@
     </fieldset>
 
     <fieldset>
-        <legend>Shared Object</legend>
-
-        <label for="shared_object">Shared Object</label>
-        <select name="shared_object" id="shared_object">
-            <option value="">Random</option>
-            {% for obj in shared_objects %}
-            <option value="{{ loop.index0 }}">[{{ loop.index0 }}] ({{ obj.object_type }}) {{ obj.text[:80] }}...</option>
-            {% endfor %}
-        </select>
+        <legend>Situation</legend>
+        <p class="text-muted">A situation will be dynamically generated from Persona A's perspective for each conversation.</p>
     </fieldset>
 
     <fieldset>

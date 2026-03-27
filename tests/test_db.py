@@ -42,7 +42,7 @@ async def test_create_run(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
             turns_per_agent=5,
         ),
     )
@@ -59,7 +59,7 @@ async def test_get_run_by_id(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
     fetched = await get_run_by_id(db, created.id)
@@ -80,7 +80,7 @@ async def test_complete_run_stores_transcript(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
     turns = [
@@ -102,7 +102,7 @@ async def test_fail_run_stores_error(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
     failed = await fail_run(db, run.id, "Connection timeout")
@@ -117,7 +117,7 @@ async def test_get_runs_filters_by_status(db) -> None:
         RunCreate(
             persona_a_name="a",
             persona_b_name="b",
-            shared_object_text="test",
+            situation_text="test",
         ),
     )
     run2 = await create_run(
@@ -125,7 +125,7 @@ async def test_get_runs_filters_by_status(db) -> None:
         RunCreate(
             persona_a_name="c",
             persona_b_name="d",
-            shared_object_text="test2",
+            situation_text="test2",
         ),
     )
     await fail_run(db, run2.id, "error")
@@ -143,7 +143,7 @@ async def test_pairing_history_tracks_pairings(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="test",
+            situation_text="test",
         ),
     )
     await record_pairing(db, "physicist", "builder", run.id)
@@ -163,7 +163,7 @@ async def _create_test_run(db):
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
 
@@ -435,7 +435,7 @@ async def test_create_run_with_batch_id(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
             batch_id=batch.id,
         ),
     )
@@ -449,7 +449,7 @@ async def test_create_run_without_batch_id(db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
     assert run.batch_id is None
@@ -463,7 +463,7 @@ async def test_get_runs_by_batch_id(db) -> None:
         RunCreate(
             persona_a_name="a",
             persona_b_name="b",
-            shared_object_text="test1",
+            situation_text="test1",
             batch_id=batch.id,
         ),
     )
@@ -472,7 +472,7 @@ async def test_get_runs_by_batch_id(db) -> None:
         RunCreate(
             persona_a_name="c",
             persona_b_name="d",
-            shared_object_text="test2",
+            situation_text="test2",
             batch_id=batch.id,
         ),
     )
@@ -482,7 +482,7 @@ async def test_get_runs_by_batch_id(db) -> None:
         RunCreate(
             persona_a_name="e",
             persona_b_name="f",
-            shared_object_text="test3",
+            situation_text="test3",
         ),
     )
     runs = await get_runs_by_batch_id(db, batch.id)

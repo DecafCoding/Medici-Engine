@@ -20,10 +20,10 @@
         </select>
     </div>
 </div>
-<!-- Hidden second request to update shared objects table on domain change -->
+<!-- Hidden second request to update situations table on domain change -->
 <select name="domain" id="domain-filter-mirror" style="display:none"
-        hx-get="/ui/insights/shared-objects"
-        hx-target="#shared-object-table-body"
+        hx-get="/ui/insights/situations"
+        hx-target="#situation-table-body"
         hx-swap="innerHTML">
 </select>
 <script>
@@ -54,11 +54,11 @@
     </tbody>
 </table>
 
-<h2 class="mt-2">Shared Object Performance</h2>
+<h2 class="mt-2">Situation Performance</h2>
 <table>
     <thead>
         <tr>
-            <th>Shared Object</th>
+            <th>Situation</th>
             <th>Type</th>
             <th>Runs</th>
             <th>Kept</th>
@@ -67,8 +67,8 @@
             <th>Kept Rate</th>
         </tr>
     </thead>
-    <tbody id="shared-object-table-body">
-        {% include "fragments/shared_object_rows.html" %}
+    <tbody id="situation-table-body">
+        {% include "fragments/situation_rows.html" %}
     </tbody>
 </table>
 {% endblock %}

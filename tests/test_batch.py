@@ -2,8 +2,8 @@
 Tests for the batch runner service.
 
 Verifies that BatchRunner correctly orchestrates the full pipeline
-(conversation -> synthesis -> scoring), handles failures gracefully,
-and tracks batch progress. All LLM calls are mocked.
+(situation generation -> conversation -> synthesis -> scoring), handles
+failures gracefully, and tracks batch progress. All LLM calls are mocked.
 """
 
 from unittest.mock import AsyncMock, patch
@@ -23,6 +23,21 @@ from src.db.queries import (
 )
 from src.domains.sci_fi_concepts import SCI_FI_CONCEPTS
 from src.engine.conversation import ConversationError
+from src.personas.models import Situation
+
+
+@pytest.fixture
+def mock_situation_generator():
+    """Mock SituationGenerator.generate to return a fixed situation."""
+    with patch("src.batch.runner.SituationGenerator") as mock_cls:
+        instance = mock_cls.return_value
+        instance.generate = AsyncMock(
+            return_value=Situation(
+                text="A test problem that has been bothering me.",
+                situation_type="generated",
+            )
+        )
+        yield instance
 
 
 @pytest.fixture
@@ -89,6 +104,7 @@ async def _create_test_batch(db, num_runs: int) -> UUID:
 
 async def test_single_conversation_batch(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     mock_scorer,
@@ -124,6 +140,7 @@ async def test_single_conversation_batch(
 
 async def test_multi_conversation_batch(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     mock_scorer,
@@ -152,6 +169,7 @@ async def test_multi_conversation_batch(
 
 async def test_batch_continues_on_conversation_failure(
     db,
+    mock_situation_generator,
     mock_synthesizer,
     mock_scorer,
     api_key_set,
@@ -188,6 +206,7 @@ async def test_batch_continues_on_conversation_failure(
 
 async def test_batch_with_specified_personas(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     mock_scorer,
@@ -212,6 +231,7 @@ async def test_batch_with_specified_personas(
 
 async def test_batch_with_random_personas(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     mock_scorer,
@@ -237,6 +257,7 @@ async def test_batch_with_random_personas(
 
 async def test_batch_skips_synthesis_without_api_key(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     api_key_empty,
 ):
@@ -265,6 +286,7 @@ async def test_batch_skips_synthesis_without_api_key(
 
 async def test_batch_handles_synthesis_failure(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_scorer,
     api_key_set,
@@ -301,6 +323,7 @@ async def test_batch_handles_synthesis_failure(
 
 async def test_batch_handles_scoring_failure(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     api_key_set,
@@ -336,6 +359,7 @@ async def test_batch_handles_scoring_failure(
 
 async def test_batch_with_zero_conversations(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     mock_scorer,
@@ -366,6 +390,7 @@ async def test_batch_with_zero_conversations(
 
 async def test_batch_all_conversations_fail(
     db,
+    mock_situation_generator,
     mock_synthesizer,
     mock_scorer,
     api_key_set,
@@ -396,6 +421,7 @@ async def test_batch_all_conversations_fail(
 
 async def test_batch_with_informed_selection(
     db,
+    mock_situation_generator,
     mock_conversation_runner,
     mock_synthesizer,
     mock_scorer,
@@ -428,28 +454,3 @@ async def test_batch_with_informed_selection(
         mock_informed.assert_called_once()
         mock_random.assert_not_called()
         mock_scores.assert_called_once()
-
-
-async def test_batch_with_specified_shared_objects(
-    db,
-    mock_conversation_runner,
-    mock_synthesizer,
-    mock_scorer,
-    api_key_set,
-):
-    """Specified shared object indices select the correct objects."""
-    batch_id = await _create_test_batch(db, 1)
-    request = BatchRequest(
-        persona_pairs=[("quantum_information_theorist", "medieval_master_builder")],
-        shared_object_indices=[2],
-        num_conversations=1,
-        turns_per_agent=5,
-    )
-
-    runner = BatchRunner(db)
-    await runner.run_batch(request, batch_id)
-
-    runs = await get_runs_by_batch_id(db, batch_id)
-    assert len(runs) == 1
-    # Index 2 is the third shared object: the ancient library scenario
-    assert "ancient library" in runs[0].shared_object_text.lower()

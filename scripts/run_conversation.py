@@ -1,10 +1,10 @@
 """
 CLI runner for the Medici Engine.
 
-Runs a single conversation between two persona agents with a shared
-object, stores the transcript in the database, synthesizes a concept
-from the transcript, scores it across evaluation axes, and prints
-results. This is the primary interface for Features 1-4.
+Runs a single conversation between two persona agents with a dynamically
+generated situation, stores the transcript in the database, synthesizes
+a concept from the transcript, scores it across evaluation axes, and
+prints results. This is the primary interface for Features 1-4.
 
 Usage:
     uv run python scripts/run_conversation.py
@@ -49,12 +49,11 @@ from src.domains.models import DomainConfig
 from src.domains.registry import get_active_domain, get_all_domains, get_domain
 from src.engine.conversation import ConversationError, ConversationRunner
 from src.engine.models import ConversationConfig, ConversationRequest
+from src.engine.situation import SituationGenerator
 from src.personas.library import (
     get_all_personas,
-    get_all_shared_objects,
     get_persona_by_name,
     get_persona_pair,
-    get_random_shared_object,
 )
 from src.scoring.scorer import Scorer, ScoringError
 from src.synthesis.synthesizer import SynthesisError, Synthesizer
@@ -86,12 +85,6 @@ def parse_args() -> argparse.Namespace:
         help="Name of the second persona (default: random selection)",
     )
     parser.add_argument(
-        "--shared-object",
-        type=int,
-        default=None,
-        help="Index of the shared object to use (default: random)",
-    )
-    parser.add_argument(
         "--domain",
         type=str,
         default=None,
@@ -106,11 +99,6 @@ def parse_args() -> argparse.Namespace:
         "--list-personas",
         action="store_true",
         help="List all available personas and exit",
-    )
-    parser.add_argument(
-        "--list-objects",
-        action="store_true",
-        help="List all available shared objects and exit",
     )
     parser.add_argument(
         "--no-synthesis",
@@ -160,7 +148,7 @@ async def _run_synthesis(
     transcript: list,
     persona_a_name: str,
     persona_b_name: str,
-    shared_object_text: str,
+    situation_text: str,
 ) -> Concept | None:
     """Run synthesis on a transcript and persist the extracted concept.
 
@@ -174,7 +162,7 @@ async def _run_synthesis(
         transcript: Ordered list of conversation turns.
         persona_a_name: Name of the first persona.
         persona_b_name: Name of the second persona.
-        shared_object_text: The shared object that seeded the conversation.
+        situation_text: The situation that seeded the conversation.
 
     Returns:
         The created Concept if synthesis succeeds, None otherwise.
@@ -194,7 +182,7 @@ async def _run_synthesis(
             transcript=transcript,
             persona_a_name=persona_a_name,
             persona_b_name=persona_b_name,
-            shared_object_text=shared_object_text,
+            situation_text=situation_text,
         )
 
         concept = await create_concept(
@@ -273,7 +261,7 @@ async def _synthesis_only(
         transcript=run_record.transcript,
         persona_a_name=run_record.persona_a_name,
         persona_b_name=run_record.persona_b_name,
-        shared_object_text=run_record.shared_object_text,
+        situation_text=run_record.situation_text,
     )
 
     if concept is not None:
@@ -374,11 +362,6 @@ async def run(args: argparse.Namespace) -> None:
             print(f"  {persona.name}: {persona.title}")
         return
 
-    if args.list_objects:
-        for i, obj in enumerate(get_all_shared_objects()):
-            print(f"  [{i}] ({obj.object_type}) {obj.text[:80]}...")
-        return
-
     # Resolve domain
     domain = _resolve_domain(args)
 
@@ -415,19 +398,18 @@ async def run(args: argparse.Namespace) -> None:
         else:
             persona_a, persona_b = get_persona_pair()
 
-        # Select shared object
-        if args.shared_object is not None:
-            objects = get_all_shared_objects()
-            if args.shared_object < 0 or args.shared_object >= len(objects):
-                logger.error(
-                    "Shared object index out of range: %d (0-%d)",
-                    args.shared_object,
-                    len(objects) - 1,
-                )
-                sys.exit(1)
-            shared_object = objects[args.shared_object]
-        else:
-            shared_object = get_random_shared_object()
+        # Generate situation from Persona A's perspective
+        print(f"\n{'─' * 60}")
+        print("GENERATING SITUATION")
+        print(f"{'─' * 60}")
+        print(f"Persona A:  {persona_a.title}")
+        print("Generating situation from their perspective...\n")
+
+        situation_gen = SituationGenerator()
+        situation = await situation_gen.generate(persona_a)
+
+        print(f"Situation generated ({len(situation.text)} chars):")
+        print(f"---\n{situation.text}\n---")
 
         # Create run record
         run_record = await create_run(
@@ -435,8 +417,8 @@ async def run(args: argparse.Namespace) -> None:
             RunCreate(
                 persona_a_name=persona_a.name,
                 persona_b_name=persona_b.name,
-                shared_object_text=shared_object.text,
-                shared_object_type=shared_object.object_type,
+                situation_text=situation.text,
+                situation_type=situation.situation_type,
                 turns_per_agent=args.turns,
             ),
         )
@@ -448,7 +430,7 @@ async def run(args: argparse.Namespace) -> None:
         print(f"Domain:         {domain.label}")
         print(f"Persona A:      {persona_a.title}")
         print(f"Persona B:      {persona_b.title}")
-        print(f"Shared Object:  {shared_object.text[:80]}...")
+        print(f"Situation:      {situation.text[:80]}...")
         print(f"Turns/Agent:    {args.turns}")
         print(f"{'=' * 60}\n")
 
@@ -462,7 +444,7 @@ async def run(args: argparse.Namespace) -> None:
         request = ConversationRequest(
             persona_a=persona_a,
             persona_b=persona_b,
-            shared_object=shared_object,
+            situation=situation,
             config=config,
         )
 
@@ -500,7 +482,7 @@ async def run(args: argparse.Namespace) -> None:
                 transcript=turns,
                 persona_a_name=persona_a.name,
                 persona_b_name=persona_b.name,
-                shared_object_text=shared_object.text,
+                situation_text=situation.text,
             )
 
         # Run scoring if synthesis produced a concept

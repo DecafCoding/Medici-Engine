@@ -1,4 +1,4 @@
-"""Tests for analytics queries (pairing and shared object performance)."""
+"""Tests for analytics queries (pairing and situation performance)."""
 
 import pytest
 
@@ -8,7 +8,7 @@ from src.db.queries import (
     PairingPerformance,
     RunCreate,
     ScoreCreate,
-    SharedObjectPerformance,
+    SituationPerformance,
     Turn,
     complete_run,
     create_concept,
@@ -16,7 +16,7 @@ from src.db.queries import (
     create_score,
     get_pairing_performance,
     get_pairing_scores,
-    get_shared_object_performance,
+    get_situation_performance,
     update_concept_status,
 )
 
@@ -27,8 +27,8 @@ async def _seed_run(
     db,
     persona_a: str = "physicist",
     persona_b: str = "builder",
-    shared_object_text: str = "A test scenario",
-    shared_object_type: str = "scenario",
+    situation_text: str = "A test scenario",
+    situation_type: str = "generated",
     turns_per_agent: int = 5,
 ):
     """Create a run, complete it, and return the run record."""
@@ -37,8 +37,8 @@ async def _seed_run(
         RunCreate(
             persona_a_name=persona_a,
             persona_b_name=persona_b,
-            shared_object_text=shared_object_text,
-            shared_object_type=shared_object_type,
+            situation_text=situation_text,
+            situation_type=situation_type,
             turns_per_agent=turns_per_agent,
         ),
     )
@@ -77,7 +77,7 @@ async def _seed_full_pipeline(
     db,
     persona_a: str = "physicist",
     persona_b: str = "builder",
-    shared_object_text: str = "A test scenario",
+    situation_text: str = "A test scenario",
     domain: str = "sci-fi-concepts",
     score_value: float = 7.0,
     concept_status: str = "pending",
@@ -87,7 +87,7 @@ async def _seed_full_pipeline(
         db,
         persona_a=persona_a,
         persona_b=persona_b,
-        shared_object_text=shared_object_text,
+        situation_text=situation_text,
     )
     concept = await create_concept(
         db,
@@ -252,21 +252,21 @@ async def test_pairing_performance_no_reviewed_concepts_null_kept_rate(db) -> No
     assert results[0].kept_rate is None
 
 
-# ── Shared Object Performance Tests ──────────────────
+# ── Situation Performance Tests ──────────────────
 
 
-async def test_shared_object_performance_empty_db(db) -> None:
+async def test_situation_performance_empty_db(db) -> None:
     """Returns empty list when no runs exist."""
-    results = await get_shared_object_performance(db)
+    results = await get_situation_performance(db)
     assert results == []
 
 
-async def test_shared_object_performance_aggregates_correctly(db) -> None:
-    """Returns correct counts and scores for a shared object."""
-    shared = "A bridge hums at midnight"
+async def test_situation_performance_aggregates_correctly(db) -> None:
+    """Returns correct counts and scores for a situation."""
+    situation = "A bridge hums at midnight"
     await _seed_full_pipeline(
         db,
-        shared_object_text=shared,
+        situation_text=situation,
         score_value=8.0,
         concept_status="kept",
     )
@@ -274,16 +274,16 @@ async def test_shared_object_performance_aggregates_correctly(db) -> None:
         db,
         persona_a="chef",
         persona_b="dancer",
-        shared_object_text=shared,
+        situation_text=situation,
         score_value=6.0,
         concept_status="discarded",
     )
 
-    results = await get_shared_object_performance(db)
+    results = await get_situation_performance(db)
     assert len(results) == 1
     r = results[0]
-    assert isinstance(r, SharedObjectPerformance)
-    assert r.shared_object_text == shared
+    assert isinstance(r, SituationPerformance)
+    assert r.situation_text == situation
     assert r.total_runs == 2
     assert r.completed_runs == 2
     assert r.concepts_kept == 1
@@ -293,12 +293,12 @@ async def test_shared_object_performance_aggregates_correctly(db) -> None:
     assert r.kept_rate == pytest.approx(0.5)
 
 
-async def test_shared_object_performance_filters_by_domain(db) -> None:
+async def test_situation_performance_filters_by_domain(db) -> None:
     """Domain filter only includes concepts from the specified domain."""
-    shared = "A signal from deep space"
+    situation = "A signal from deep space"
     await _seed_full_pipeline(
         db,
-        shared_object_text=shared,
+        situation_text=situation,
         domain="sci-fi-concepts",
         score_value=9.0,
         concept_status="kept",
@@ -307,13 +307,13 @@ async def test_shared_object_performance_filters_by_domain(db) -> None:
         db,
         persona_a="chef",
         persona_b="dancer",
-        shared_object_text=shared,
+        situation_text=situation,
         domain="product-design",
         score_value=4.0,
         concept_status="kept",
     )
 
-    results = await get_shared_object_performance(db, domain="sci-fi-concepts")
+    results = await get_situation_performance(db, domain="sci-fi-concepts")
     assert len(results) == 1
     assert results[0].avg_score == 9.0
 

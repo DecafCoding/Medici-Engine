@@ -60,7 +60,7 @@ class Synthesizer:
         transcript: list[Turn],
         persona_a_name: str,
         persona_b_name: str,
-        shared_object_text: str,
+        situation_text: str,
     ) -> dict[str, str]:
         """Extract a structured concept from a conversation transcript.
 
@@ -68,7 +68,7 @@ class Synthesizer:
             transcript: Ordered list of conversation turns.
             persona_a_name: Name of the first persona.
             persona_b_name: Name of the second persona.
-            shared_object_text: The shared object that seeded the conversation.
+            situation_text: The situation that seeded the conversation.
 
         Returns:
             A dict mapping extraction field names to their values.
@@ -92,7 +92,7 @@ class Synthesizer:
             formatted_transcript=formatted,
             persona_a_name=persona_a_name,
             persona_b_name=persona_b_name,
-            shared_object_text=shared_object_text,
+            situation_text=situation_text,
         )
 
         # Build the response_format model dynamically from domain config
@@ -148,7 +148,7 @@ class Synthesizer:
         formatted_transcript: str,
         persona_a_name: str,
         persona_b_name: str,
-        shared_object_text: str,
+        situation_text: str,
     ) -> list[dict[str, str]]:
         """Build the chat messages for the synthesis API call.
 
@@ -156,15 +156,16 @@ class Synthesizer:
             formatted_transcript: Human-readable transcript text.
             persona_a_name: Name of the first persona.
             persona_b_name: Name of the second persona.
-            shared_object_text: The shared object that seeded the conversation.
+            situation_text: The situation that seeded the conversation.
 
         Returns:
             List of message dicts ready for the OpenAI chat API.
         """
         user_content = (
             f"Conversation between **{persona_a_name}** and **{persona_b_name}**.\n\n"
-            f"Shared object they were reacting to:\n"
-            f"---\n{shared_object_text}\n---\n\n"
+            f"Situation that seeded the conversation (generated from "
+            f"{persona_a_name}'s perspective):\n"
+            f"---\n{situation_text}\n---\n\n"
             f"Full transcript:\n\n{formatted_transcript}"
         )
 
