@@ -162,9 +162,10 @@ async def review_rows(
     concepts = await get_concepts_with_scores(
         db, status=status, sort_by=sort, limit=limit
     )
+    domain = get_active_domain()
     return templates.TemplateResponse(
         "fragments/concept_rows.html",
-        {"request": request, "concepts": concepts},
+        {"request": request, "concepts": concepts, "domain": domain},
     )
 
 

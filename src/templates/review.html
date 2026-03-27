@@ -37,7 +37,9 @@
         <tr>
             <th>Title</th>
             <th>Summary</th>
-            <th>Score</th>
+            {% for axis in domain.scoring_axes %}
+            <th>{{ axis.label }}</th>
+            {% endfor %}
             <th>Status</th>
             <th>Date</th>
         </tr>
