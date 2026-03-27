@@ -98,12 +98,17 @@ class Synthesizer:
         # Build the response_format model dynamically from domain config
         extraction_model = create_extraction_model(self._domain)
 
+        # Some models (e.g. gpt-5-mini) only accept their default temperature
+        optional_params: dict = {}
+        if settings.synthesis_temperature is not None:
+            optional_params["temperature"] = settings.synthesis_temperature
+
         try:
             response = await self._client.beta.chat.completions.parse(
                 model=settings.synthesis_model,
                 messages=messages,
                 response_format=extraction_model,
-                temperature=0.4,
+                **optional_params,
             )
         except APIConnectionError as e:
             raise ExtractionError(f"Cannot reach OpenAI API: {e}") from e
