@@ -9,7 +9,7 @@ belongs to the Persona layer and contains no LLM calls.
 import logging
 import random
 
-from src.personas.models import Persona, SharedObject
+from src.personas.models import Persona
 
 logger = logging.getLogger(__name__)
 
@@ -1368,175 +1368,6 @@ PERSONAS: list[Persona] = [
     ),
 ]
 
-# ── Starter Shared Objects ───────────────────────────
-
-SHARED_OBJECTS: list[SharedObject] = [
-    SharedObject(
-        text=(
-            "A city discovers that the foundation"
-            " beneath its oldest building has been"
-            " slowly dissolving for centuries, and the"
-            " building has been standing only because"
-            " of an accidental equilibrium that nobody"
-            " engineered."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "A signal is detected that repeats every"
-            " 22 minutes with perfect regularity from"
-            " a source 4,000 meters below the ocean"
-            " surface. It has been repeating for at"
-            " least 200 years based on geological"
-            " evidence."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "An ancient library is discovered where"
-            " every book is blank — but the arrangement"
-            " of the books on the shelves, the spacing,"
-            " and the size variations encode information"
-            " that no one has been able to decode."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "What would it mean for a system to forget"
-            " something on purpose, and why might"
-            " deliberate forgetting be more valuable"
-            " than perfect memory?"
-        ),
-        object_type="question",
-    ),
-    SharedObject(
-        text=(
-            "Design a building that teaches its"
-            " inhabitants something new every decade,"
-            " not through displays or signs, but"
-            " through its structure alone."
-        ),
-        object_type="problem",
-    ),
-    SharedObject(
-        text=(
-            "A musician discovers that a melody she"
-            " composed independently is identical to"
-            " a song from an uncontacted tribe on the"
-            " other side of the world — note for note,"
-            " rhythm for rhythm — recorded by an"
-            " anthropologist decades earlier."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "An AI system trained to optimize crop"
-            " yields begins recommending that farmers"
-            " leave 30% of their land fallow in"
-            " patterns that, when viewed from above,"
-            " resemble the field rotation systems of"
-            " pre-industrial agriculture."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "Is it possible to communicate something"
-            " meaningful to a recipient who does not"
-            " share your language, your sensory"
-            " experience, or your concept of time?"
-        ),
-        object_type="question",
-    ),
-    SharedObject(
-        text=(
-            "If you could design an organism from"
-            " scratch to survive in a specific"
-            " environment, what would you learn by"
-            " comparing your design to what evolution"
-            " actually produced there?"
-        ),
-        object_type="question",
-    ),
-    SharedObject(
-        text=(
-            "Create a method for preserving a piece"
-            " of knowledge for 10,000 years, assuming"
-            " that no language, institution, or"
-            " technology from today will still exist"
-            " when it needs to be understood."
-        ),
-        object_type="problem",
-    ),
-    SharedObject(
-        text=(
-            "A hospital discovers that patients in"
-            " one wing recover 20% faster than"
-            " identical patients in another wing."
-            " The wings are architecturally identical."
-            " The staff rotates between them. No"
-            " measurable variable explains the"
-            " difference."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "A small town notices that every dog in"
-            " the neighborhood barks in sequence — not"
-            " randomly, but in a consistent wave pattern"
-            " that moves from east to west — every night"
-            " at exactly 2:14 AM. No single dog starts"
-            " it. The pattern has no identifiable origin"
-            " point."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "A team of translators working independently"
-            " on the same document each introduce the"
-            " same error in the same paragraph — not a"
-            " mistranslation, but an identical invented"
-            " word that exists in no known language."
-        ),
-        object_type="scenario",
-    ),
-    SharedObject(
-        text=(
-            "If two people disagree about something"
-            " but neither can articulate why they hold"
-            " their position, is the disagreement real?"
-        ),
-        object_type="question",
-    ),
-    SharedObject(
-        text=(
-            "Design a game where the optimal strategy"
-            " requires exactly three players to lose"
-            " on purpose, but no player can know whether"
-            " they are one of the three."
-        ),
-        object_type="problem",
-    ),
-    SharedObject(
-        text=(
-            "A software company discovers that their"
-            " most reliable codebase was written entirely"
-            " by an engineer who never once ran the code"
-            " during development. Every function worked"
-            " on the first execution. The engineer cannot"
-            " explain how."
-        ),
-        object_type="scenario",
-    ),
-]
-
-
 # ── Selection Logic ──────────────────────────────────
 
 
@@ -1544,10 +1375,6 @@ def get_all_personas() -> list[Persona]:
     """Return the full persona library."""
     return PERSONAS.copy()
 
-
-def get_all_shared_objects() -> list[SharedObject]:
-    """Return the full shared object pool."""
-    return SHARED_OBJECTS.copy()
 
 
 def get_persona_by_name(name: str) -> Persona | None:
@@ -1701,6 +1528,3 @@ def get_informed_persona_pair(
     return pair
 
 
-def get_random_shared_object() -> SharedObject:
-    """Select a random shared object from the pool."""
-    return random.choice(SHARED_OBJECTS)

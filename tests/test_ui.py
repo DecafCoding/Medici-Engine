@@ -27,7 +27,7 @@ async def _seed_review_data(db):
         RunCreate(
             persona_a_name="test_physicist",
             persona_b_name="test_builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
             batch_id=batch.id,
         ),
     )
@@ -116,13 +116,11 @@ async def test_batch_page_contains_personas(client) -> None:
     assert "deep_sea_ecologist" in response.text
 
 
-async def test_batch_page_contains_shared_objects(client) -> None:
-    """Verify shared objects appear in the batch setup dropdown."""
+async def test_batch_page_shows_situation_info(client) -> None:
+    """Verify the batch setup page explains dynamic situation generation."""
     response = await client.get("/ui/batch")
     assert response.status_code == 200
-    # Check for a snippet from the first shared object
-    assert "oldest building" in response.text
-    assert "scenario" in response.text
+    assert "dynamically generated" in response.text
 
 
 async def test_batch_form_submission(client, db) -> None:
@@ -138,7 +136,6 @@ async def test_batch_form_submission(client, db) -> None:
                 "turns_per_agent": "3",
                 "persona_a": "",
                 "persona_b": "",
-                "shared_object": "",
             },
         )
 
@@ -160,7 +157,6 @@ async def test_batch_form_with_informed_selection(client, db) -> None:
                 "turns_per_agent": "5",
                 "persona_a": "",
                 "persona_b": "",
-                "shared_object": "",
                 "use_informed_selection": "1",
             },
         )
@@ -185,7 +181,6 @@ async def test_batch_form_without_informed_selection(client, db) -> None:
                 "turns_per_agent": "5",
                 "persona_a": "",
                 "persona_b": "",
-                "shared_object": "",
             },
         )
 
@@ -269,7 +264,7 @@ async def test_review_sort_by_score(client, db) -> None:
         RunCreate(
             persona_a_name="a",
             persona_b_name="b",
-            shared_object_text="test",
+            situation_text="test",
         ),
     )
     concept1 = await create_concept(
@@ -308,7 +303,7 @@ async def test_review_sort_by_score(client, db) -> None:
         RunCreate(
             persona_a_name="c",
             persona_b_name="d",
-            shared_object_text="test2",
+            situation_text="test2",
         ),
     )
     concept2 = await create_concept(
@@ -404,7 +399,7 @@ async def test_transcript_no_transcript(client, db) -> None:
         RunCreate(
             persona_a_name="a",
             persona_b_name="b",
-            shared_object_text="test",
+            situation_text="test",
         ),
     )
     concept = await create_concept(
@@ -457,9 +452,9 @@ async def test_insights_page_renders_empty(client) -> None:
     response = await client.get("/ui/insights")
     assert response.status_code == 200
     assert "Pairing Performance" in response.text
-    assert "Shared Object Performance" in response.text
+    assert "Situation Performance" in response.text
     assert "No pairing data available." in response.text
-    assert "No shared object data available." in response.text
+    assert "No situation data available." in response.text
 
 
 async def test_insights_page_renders_with_data(client, db) -> None:
@@ -483,11 +478,11 @@ async def test_insights_pairing_fragment(client, db) -> None:
     assert "<!DOCTYPE" not in response.text
 
 
-async def test_insights_shared_object_fragment(client, db) -> None:
-    """Verify the shared object fragment returns data without full page layout."""
+async def test_insights_situation_fragment(client, db) -> None:
+    """Verify the situation fragment returns data without full page layout."""
     await _seed_review_data(db)
 
-    response = await client.get("/ui/insights/shared-objects")
+    response = await client.get("/ui/insights/situations")
     assert response.status_code == 200
     assert "A test scenario" in response.text
     assert "<!DOCTYPE" not in response.text

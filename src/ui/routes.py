@@ -26,11 +26,11 @@ from src.db.queries import (
     get_pairing_performance,
     get_run_by_id,
     get_score_by_concept_id,
-    get_shared_object_performance,
+    get_situation_performance,
     update_concept_status,
 )
 from src.domains.registry import get_active_domain, get_all_domains
-from src.personas.library import get_all_personas, get_all_shared_objects
+from src.personas.library import get_all_personas
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +43,13 @@ templates = Jinja2Templates(
 
 @router.get("/batch")
 async def batch_setup(request: Request):
-    """Render the batch setup form with persona and shared object options."""
+    """Render the batch setup form with persona options."""
     personas = get_all_personas()
-    shared_objects = get_all_shared_objects()
     return templates.TemplateResponse(
         "batch.html",
         {
             "request": request,
             "personas": personas,
-            "shared_objects": shared_objects,
         },
     )
 
@@ -85,19 +83,12 @@ async def launch_batch(
     # Parse informed selection checkbox (absent when unchecked)
     use_informed_selection = bool(form.get("use_informed_selection", ""))
 
-    # Parse shared object selection (empty string = random)
-    shared_object_str = str(form.get("shared_object", ""))
-    shared_object_indices: list[int] | None = None
-    if shared_object_str:
-        shared_object_indices = [int(shared_object_str)]
-
     # Create batch record
     batch = await create_batch(db, BatchCreate(total_runs=num_conversations))
 
     # Build request and launch background task
     batch_request = BatchRequest(
         persona_pairs=persona_pairs,
-        shared_object_indices=shared_object_indices,
         num_conversations=num_conversations,
         turns_per_agent=turns_per_agent,
         use_informed_selection=use_informed_selection,
@@ -239,17 +230,17 @@ async def review_toggle_status(request: Request, concept_id: UUID):
 
 @router.get("/insights")
 async def insights_page(request: Request, domain: str | None = None):
-    """Render the insights page with pairing and shared object performance."""
+    """Render the insights page with pairing and situation performance."""
     db = request.app.state.db
     domains = get_all_domains()
     pairings = await get_pairing_performance(db, domain=domain)
-    shared_objects = await get_shared_object_performance(db, domain=domain)
+    situations = await get_situation_performance(db, domain=domain)
     return templates.TemplateResponse(
         "insights.html",
         {
             "request": request,
             "pairings": pairings,
-            "shared_objects": shared_objects,
+            "situations": situations,
             "current_domain": domain,
             "domains": domains,
         },
@@ -267,12 +258,12 @@ async def insights_pairing_rows(request: Request, domain: str | None = None):
     )
 
 
-@router.get("/insights/shared-objects")
-async def insights_shared_object_rows(request: Request, domain: str | None = None):
-    """Return the shared object performance table body fragment for HTMX swap."""
+@router.get("/insights/situations")
+async def insights_situation_rows(request: Request, domain: str | None = None):
+    """Return the situation performance table body fragment for HTMX swap."""
     db = request.app.state.db
-    shared_objects = await get_shared_object_performance(db, domain=domain)
+    situations = await get_situation_performance(db, domain=domain)
     return templates.TemplateResponse(
-        "fragments/shared_object_rows.html",
-        {"request": request, "shared_objects": shared_objects},
+        "fragments/situation_rows.html",
+        {"request": request, "situations": situations},
     )

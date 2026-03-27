@@ -1,10 +1,10 @@
 """
 Conversation runner for the Medici Engine.
 
-Manages turn-taking between two persona agents given a shared object,
-producing a full conversation transcript. This module belongs to the
-Engine layer and communicates with the local vLLM inference server
-via an OpenAI-compatible API.
+Manages turn-taking between two persona agents given a dynamically
+generated situation, producing a full conversation transcript. This
+module belongs to the Engine layer and communicates with the local
+vLLM inference server via an OpenAI-compatible API.
 """
 
 import logging
@@ -20,7 +20,7 @@ from openai import (
 from src.config import settings
 from src.db.queries import Turn
 from src.engine.models import ConversationConfig, ConversationRequest
-from src.personas.models import Persona, SharedObject
+from src.personas.models import Persona, Situation
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class InferenceError(ConversationError):
 class ConversationRunner:
     """Orchestrates a multi-turn conversation between two persona agents.
 
-    Takes two fully specified personas and a shared object, manages
+    Takes two fully specified personas and a situation, manages
     turn-taking for a configurable number of exchanges, and returns
     the complete transcript. Communicates with the local inference
     server via the OpenAI-compatible client.
@@ -54,7 +54,7 @@ class ConversationRunner:
         )
 
     async def run(self, request: ConversationRequest) -> list[Turn]:
-        """Run a full conversation between two personas on a shared object.
+        """Run a full conversation between two personas on a situation.
 
         Alternates turns between persona_a and persona_b, building up
         a shared message history. Each agent sees the full conversation
@@ -62,7 +62,7 @@ class ConversationRunner:
 
         Args:
             request: Complete conversation specification including
-                personas, shared object, and generation config.
+                personas, situation, and generation config.
 
         Returns:
             Ordered list of conversation turns.
@@ -73,7 +73,7 @@ class ConversationRunner:
         """
         persona_a = request.persona_a
         persona_b = request.persona_b
-        shared_object = request.shared_object
+        situation = request.situation
         config = request.config
 
         logger.info(
@@ -81,7 +81,7 @@ class ConversationRunner:
             extra={
                 "persona_a": persona_a.name,
                 "persona_b": persona_b.name,
-                "shared_object_type": shared_object.object_type,
+                "situation_type": situation.situation_type,
                 "turns_per_agent": config.turns_per_agent,
             },
         )
@@ -99,7 +99,7 @@ class ConversationRunner:
                 content = await self._generate_turn(
                     active_persona=active_persona,
                     other_persona=other_persona,
-                    shared_object=shared_object,
+                    situation=situation,
                     turns=turns,
                     turn_number=turn_number,
                     config=config,
@@ -145,7 +145,7 @@ class ConversationRunner:
         self,
         active_persona: Persona,
         other_persona: Persona,
-        shared_object: SharedObject,
+        situation: Situation,
         turns: list[Turn],
         turn_number: int,
         config: ConversationConfig,
@@ -158,7 +158,7 @@ class ConversationRunner:
         Args:
             active_persona: The persona generating this turn.
             other_persona: The other persona in the conversation.
-            shared_object: The shared object being discussed.
+            situation: The situation seeding the conversation.
             turns: All previous turns in the conversation.
             turn_number: Current turn number (1-indexed).
             config: Generation parameters.
@@ -172,7 +172,7 @@ class ConversationRunner:
         messages = self._build_messages(
             active_persona=active_persona,
             other_persona=other_persona,
-            shared_object=shared_object,
+            situation=situation,
             turns=turns,
             turn_number=turn_number,
         )
@@ -209,21 +209,21 @@ class ConversationRunner:
         self,
         active_persona: Persona,
         other_persona: Persona,
-        shared_object: SharedObject,
+        situation: Situation,
         turns: list[Turn],
         turn_number: int,
     ) -> list[dict[str, str]]:
         """Build the chat messages array for a turn.
 
         Constructs the message history from the active persona's
-        perspective: their system prompt, the shared object as the
+        perspective: their system prompt, the situation as the
         opening user message, then alternating assistant/user roles
         for previous turns.
 
         Args:
             active_persona: The persona generating this turn.
             other_persona: The other persona in the conversation.
-            shared_object: The shared object being discussed.
+            situation: The situation seeding the conversation.
             turns: All previous turns in the conversation.
             turn_number: Current turn number.
 
@@ -234,22 +234,40 @@ class ConversationRunner:
             {"role": "system", "content": active_persona.to_system_prompt()},
         ]
 
-        # Opening context: present the shared object and conversation framing
+        # Opening context: present the situation and conversation framing
         opening = (
-            f"You are in a conversation with someone very different from you — "
-            f"{other_persona.title}. You have both been presented with the following "
-            f"and asked to react to it from your own perspective:\n\n"
-            f"---\n{shared_object.text}\n---\n\n"
+            f"You're in a conversation with someone very different from you — "
+            f"{other_persona.title}. One of you has been wrestling with a problem "
+            f"and described it like this:\n\n"
+            f"---\n{situation.text}\n---\n\n"
         )
 
         if turn_number == 1:
-            # First turn: persona A reacts to the shared object
+            # First turn: persona A elaborates on or continues from the situation
+            # (the situation was generated from their perspective)
             opening += (
-                "Give your initial reaction to this. What does it make you think of? "
-                "What questions does it raise? Respond naturally as yourself."
+                "This is your problem. You wrote the description above. Now you're "
+                "talking to someone outside your field about it. Continue thinking "
+                "out loud — what aspects of this are most frustrating? What have "
+                "you already tried? Respond naturally as yourself."
             )
             messages.append({"role": "user", "content": opening})
         else:
+            if active_persona == other_persona:
+                # This branch won't trigger in normal flow, but for clarity:
+                # Persona B sees the situation as someone else's problem
+                pass
+
+            # For persona B's first turn (turn 2), frame it as encountering
+            # someone else's problem
+            if turn_number == 2:
+                opening += (
+                    "Someone from a completely different field just described this "
+                    "problem to you. What strikes you about it? What does it remind "
+                    "you of from your own work? React honestly — don't pretend to "
+                    "be an expert in their area. Respond naturally as yourself."
+                )
+
             messages.append({"role": "user", "content": opening})
 
             # Replay conversation history with correct role mapping

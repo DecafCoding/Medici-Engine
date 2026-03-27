@@ -39,7 +39,7 @@ async def test_get_run_concept(client, db) -> None:
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
     concept = await create_concept(
@@ -66,7 +66,7 @@ async def _seed_score(db):
         RunCreate(
             persona_a_name="physicist",
             persona_b_name="builder",
-            shared_object_text="A test scenario",
+            situation_text="A test scenario",
         ),
     )
     concept = await create_concept(

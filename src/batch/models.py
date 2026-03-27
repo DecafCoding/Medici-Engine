@@ -12,8 +12,8 @@ class BatchRequest(BaseModel):
     """Specification for a batch of conversation runs.
 
     Configures how many conversations to run, which persona pairings
-    to use, and which shared objects to seed them with. When persona
-    pairs or shared objects are not specified, they are selected randomly.
+    to use, and generation settings. Situations are generated dynamically
+    for each conversation from Persona A's perspective.
     """
 
     persona_pairs: list[tuple[str, str]] | None = Field(
@@ -21,10 +21,6 @@ class BatchRequest(BaseModel):
         description=(
             "List of (persona_a_name, persona_b_name) tuples. None = random selection."
         ),
-    )
-    shared_object_indices: list[int] | None = Field(
-        default=None,
-        description=("List of shared object indices to use. None = random selection."),
     )
     num_conversations: int = Field(
         default=1,

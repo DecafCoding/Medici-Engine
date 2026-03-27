@@ -1,8 +1,8 @@
-{% if shared_objects %}
-{% for s in shared_objects %}
+{% if situations %}
+{% for s in situations %}
 <tr>
-    <td>{{ s.shared_object_text[:80] }}{% if s.shared_object_text|length > 80 %}...{% endif %}</td>
-    <td>{{ s.shared_object_type }}</td>
+    <td>{{ s.situation_text[:80] }}{% if s.situation_text|length > 80 %}...{% endif %}</td>
+    <td>{{ s.situation_type }}</td>
     <td>{{ s.total_runs }}</td>
     <td>{{ s.concepts_kept }}</td>
     <td>{{ s.concepts_discarded }}</td>
@@ -11,5 +11,5 @@
 </tr>
 {% endfor %}
 {% else %}
-<tr><td colspan="7">No shared object data available.</td></tr>
+<tr><td colspan="7">No situation data available.</td></tr>
 {% endif %}

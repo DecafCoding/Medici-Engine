@@ -16,7 +16,7 @@ from src.engine.models import ConversationConfig, ConversationRequest
 async def test_conversation_produces_correct_turn_count(
     test_persona_a,
     test_persona_b,
-    test_shared_object,
+    test_situation,
     mock_openai_response,
 ) -> None:
     """Verify a conversation produces the expected number of turns."""
@@ -25,7 +25,7 @@ async def test_conversation_produces_correct_turn_count(
     request = ConversationRequest(
         persona_a=test_persona_a,
         persona_b=test_persona_b,
-        shared_object=test_shared_object,
+        situation=test_situation,
         config=config,
     )
 
@@ -44,7 +44,7 @@ async def test_conversation_produces_correct_turn_count(
 async def test_conversation_alternates_personas(
     test_persona_a,
     test_persona_b,
-    test_shared_object,
+    test_situation,
     mock_openai_response,
 ) -> None:
     """Verify personas alternate correctly: A, B, A, B, ..."""
@@ -52,7 +52,7 @@ async def test_conversation_alternates_personas(
     request = ConversationRequest(
         persona_a=test_persona_a,
         persona_b=test_persona_b,
-        shared_object=test_shared_object,
+        situation=test_situation,
         config=config,
     )
 
@@ -73,7 +73,7 @@ async def test_conversation_alternates_personas(
 async def test_conversation_builds_message_history(
     test_persona_a,
     test_persona_b,
-    test_shared_object,
+    test_situation,
     mock_openai_response,
 ) -> None:
     """Verify message history grows with each turn."""
@@ -81,7 +81,7 @@ async def test_conversation_builds_message_history(
     request = ConversationRequest(
         persona_a=test_persona_a,
         persona_b=test_persona_b,
-        shared_object=test_shared_object,
+        situation=test_situation,
         config=config,
     )
 
@@ -106,14 +106,14 @@ async def test_conversation_builds_message_history(
 async def test_conversation_raises_inference_error_on_connection_failure(
     test_persona_a,
     test_persona_b,
-    test_shared_object,
+    test_situation,
 ) -> None:
     """Verify InferenceError is raised when vLLM is unreachable."""
     config = ConversationConfig(turns_per_agent=1)
     request = ConversationRequest(
         persona_a=test_persona_a,
         persona_b=test_persona_b,
-        shared_object=test_shared_object,
+        situation=test_situation,
         config=config,
     )
 
@@ -132,7 +132,7 @@ async def test_conversation_raises_inference_error_on_connection_failure(
 async def test_conversation_raises_inference_error_on_empty_response(
     test_persona_a,
     test_persona_b,
-    test_shared_object,
+    test_situation,
     mock_openai_response,
 ) -> None:
     """Verify InferenceError is raised when vLLM returns empty content."""
@@ -140,7 +140,7 @@ async def test_conversation_raises_inference_error_on_empty_response(
     request = ConversationRequest(
         persona_a=test_persona_a,
         persona_b=test_persona_b,
-        shared_object=test_shared_object,
+        situation=test_situation,
         config=config,
     )
 

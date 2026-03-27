@@ -2,10 +2,11 @@
 Batch runner for the Medici Engine.
 
 Executes multiple conversation runs as a batch, coordinating the full
-pipeline: persona selection -> conversation -> synthesis -> scoring.
-Tracks progress in the batches table and handles individual conversation
-failures without aborting the batch. This module belongs to the API layer
-and orchestrates across Engine, Synthesis, and Scoring layers.
+pipeline: persona selection -> situation generation -> conversation ->
+synthesis -> scoring. Tracks progress in the batches table and handles
+individual conversation failures without aborting the batch. This module
+belongs to the API layer and orchestrates across Engine, Synthesis, and
+Scoring layers.
 """
 
 import logging
@@ -35,12 +36,11 @@ from src.domains.models import DomainConfig
 from src.domains.registry import get_active_domain
 from src.engine.conversation import ConversationRunner
 from src.engine.models import ConversationConfig, ConversationRequest
+from src.engine.situation import SituationGenerator
 from src.personas.library import (
-    get_all_shared_objects,
     get_informed_persona_pair,
     get_persona_by_name,
     get_persona_pair,
-    get_random_shared_object,
 )
 from src.scoring.scorer import Scorer, ScoringError
 from src.synthesis.synthesizer import SynthesisError, Synthesizer
@@ -55,10 +55,10 @@ class BatchError(Exception):
 class BatchRunner:
     """Executes a batch of conversation runs through the full pipeline.
 
-    For each conversation in the batch: selects personas and a shared
-    object, runs the conversation via vLLM, synthesizes a concept via
-    the OpenAI API, and scores it. Individual conversation failures are
-    logged and tracked but do not abort the batch.
+    For each conversation in the batch: selects personas, generates a
+    situation from Persona A's perspective via vLLM, runs the conversation,
+    synthesizes a concept via the OpenAI API, and scores it. Individual
+    conversation failures are logged and tracked but do not abort the batch.
     """
 
     def __init__(self, db: aiosqlite.Connection) -> None:
@@ -73,8 +73,8 @@ class BatchRunner:
         individual runs fail.
 
         Args:
-            request: Batch configuration specifying personas, shared
-                objects, conversation count, and turn settings.
+            request: Batch configuration specifying personas,
+                conversation count, and turn settings.
             batch_id: ID of the batch record to track progress against.
         """
         logger.info(
@@ -86,7 +86,6 @@ class BatchRunner:
         )
 
         domain = get_active_domain()
-        all_shared_objects = get_all_shared_objects()
 
         for i in range(request.num_conversations):
             run_id: UUID | None = None
@@ -94,16 +93,9 @@ class BatchRunner:
                 # 1. Select persona pair
                 persona_a, persona_b = await self._select_personas(request, i, domain)
 
-                # 2. Select shared object
-                if request.shared_object_indices is not None:
-                    idx = request.shared_object_indices[
-                        i % len(request.shared_object_indices)
-                    ]
-                    if idx < 0 or idx >= len(all_shared_objects):
-                        raise BatchError(f"Shared object index out of range: {idx}")
-                    shared_object = all_shared_objects[idx]
-                else:
-                    shared_object = get_random_shared_object()
+                # 2. Generate situation from Persona A's perspective
+                situation_gen = SituationGenerator()
+                situation = await situation_gen.generate(persona_a)
 
                 # 3. Create run record
                 run_record = await create_run(
@@ -111,8 +103,8 @@ class BatchRunner:
                     RunCreate(
                         persona_a_name=persona_a.name,
                         persona_b_name=persona_b.name,
-                        shared_object_text=shared_object.text,
-                        shared_object_type=shared_object.object_type,
+                        situation_text=situation.text,
+                        situation_type=situation.situation_type,
                         turns_per_agent=request.turns_per_agent,
                         batch_id=batch_id,
                     ),
@@ -129,7 +121,7 @@ class BatchRunner:
                 conv_request = ConversationRequest(
                     persona_a=persona_a,
                     persona_b=persona_b,
-                    shared_object=shared_object,
+                    situation=situation,
                     config=config,
                 )
 
@@ -149,7 +141,7 @@ class BatchRunner:
                         turns=turns,
                         persona_a_name=persona_a.name,
                         persona_b_name=persona_b.name,
-                        shared_object_text=shared_object.text,
+                        situation_text=situation.text,
                     )
 
                 # 7. Score (if synthesis succeeded and API key available)
@@ -229,7 +221,7 @@ class BatchRunner:
         turns: list,
         persona_a_name: str,
         persona_b_name: str,
-        shared_object_text: str,
+        situation_text: str,
     ):
         """Run synthesis on a transcript and persist the concept.
 
@@ -239,7 +231,7 @@ class BatchRunner:
             turns: Ordered list of conversation turns.
             persona_a_name: Name of the first persona.
             persona_b_name: Name of the second persona.
-            shared_object_text: The shared object text.
+            situation_text: The situation text that seeded the conversation.
 
         Returns:
             The created Concept if synthesis succeeds, None otherwise.
@@ -250,7 +242,7 @@ class BatchRunner:
                 transcript=turns,
                 persona_a_name=persona_a_name,
                 persona_b_name=persona_b_name,
-                shared_object_text=shared_object_text,
+                situation_text=situation_text,
             )
             return await create_concept(
                 self._db,

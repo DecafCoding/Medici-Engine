@@ -8,7 +8,7 @@ Engine layer.
 
 from pydantic import BaseModel, Field
 
-from src.personas.models import Persona, SharedObject
+from src.personas.models import Persona, Situation
 
 
 class ConversationConfig(BaseModel):
@@ -29,11 +29,11 @@ class ConversationConfig(BaseModel):
 class ConversationRequest(BaseModel):
     """Complete specification for a conversation run.
 
-    Bundles the two personas, shared object, and generation config
+    Bundles the two personas, situation, and generation config
     into a single request object.
     """
 
     persona_a: Persona
     persona_b: Persona
-    shared_object: SharedObject
+    situation: Situation
     config: ConversationConfig = Field(default_factory=ConversationConfig)
