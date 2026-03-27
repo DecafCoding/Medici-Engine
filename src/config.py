@@ -70,6 +70,10 @@ class Settings(BaseSettings):
         default="o3",
         description="OpenAI model for scoring",
     )
+    synthesis_temperature: float | None = Field(
+        default=0.4,
+        description="Temperature for synthesis (None lets the model use its default)",
+    )
     scoring_temperature: float | None = Field(
         default=None,
         description="Temperature for scoring (None lets the model use its default)",
