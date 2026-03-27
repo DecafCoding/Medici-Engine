@@ -74,7 +74,7 @@ def api_key_set():
         mock_settings.openai_api_key = "test-key"
         mock_settings.conversation_temperature = 0.9
         mock_settings.conversation_repetition_penalty = 1.15
-        mock_settings.conversation_max_tokens = 512
+        mock_settings.conversation_max_tokens = 150
         yield mock_settings
 
 
@@ -85,7 +85,7 @@ def api_key_empty():
         mock_settings.openai_api_key = ""
         mock_settings.conversation_temperature = 0.9
         mock_settings.conversation_repetition_penalty = 1.15
-        mock_settings.conversation_max_tokens = 512
+        mock_settings.conversation_max_tokens = 150
         yield mock_settings
 
 

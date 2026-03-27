@@ -103,7 +103,7 @@ class Settings(BaseSettings):
         description="Repetition penalty for vLLM",
     )
     conversation_max_tokens: int = Field(
-        default=512,
+        default=150,
         description="Maximum tokens per conversation turn",
     )
 

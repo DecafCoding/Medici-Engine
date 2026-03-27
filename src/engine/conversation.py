@@ -249,7 +249,8 @@ class ConversationRunner:
                 "This is your problem. You wrote the description above. Now you're "
                 "talking to someone outside your field about it. Continue thinking "
                 "out loud — what aspects of this are most frustrating? What have "
-                "you already tried? Respond naturally as yourself."
+                "you already tried? Respond naturally as yourself. "
+                "Keep it to a short paragraph or two."
             )
             messages.append({"role": "user", "content": opening})
         else:
@@ -265,7 +266,8 @@ class ConversationRunner:
                     "Someone from a completely different field just described this "
                     "problem to you. What strikes you about it? What does it remind "
                     "you of from your own work? React honestly — don't pretend to "
-                    "be an expert in their area. Respond naturally as yourself."
+                    "be an expert in their area. Respond naturally as yourself. "
+                    "Keep it to a short paragraph or two."
                 )
 
             messages.append({"role": "user", "content": opening})

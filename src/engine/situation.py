@@ -30,12 +30,13 @@ SITUATION_PROMPT = (
     "You've had a rough week. Something in your work has been nagging at you — "
     "a problem you can't solve, a pattern that doesn't make sense, a result "
     "that contradicts what you expected.\n\n"
-    "Describe what's been bothering you. Be specific. Use the language you'd "
-    "use talking to a colleague in your field — the real jargon, the real "
-    "frustration. Don't simplify it for an outsider. This isn't a presentation; "
-    "it's you thinking out loud about something that's genuinely unresolved.\n\n"
-    "Keep it to 2-3 paragraphs. Stay concrete — name the specific phenomenon, "
-    "dataset, case, mechanism, or observation that has you stuck."
+    "Describe what's been bothering you to a friend who doesn't work in your "
+    "field. Be specific about the problem, but explain it the way you would "
+    "over coffee — plain language, no jargon, no technical terms. If something "
+    "sounds weird or off, just say it sounds weird or off. Talk about what you "
+    "noticed, what felt wrong, and why it's bugging you.\n\n"
+    "Keep it to 2-3 short paragraphs. Stay concrete — describe what you actually "
+    "saw, heard, or found, not the theory behind it."
 )
 
 
@@ -89,7 +90,7 @@ class SituationGenerator:
                     model=settings.situation_model,
                     messages=messages,
                     temperature=0.9,
-                    max_tokens=768,
+                    max_tokens=400,
                 )
 
                 content = response.choices[0].message.content
