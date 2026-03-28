@@ -274,7 +274,6 @@ button.secondary:hover {
 
 .transcript-content {
     padding: 1rem;
-    font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
     font-size: 0.85rem;
     line-height: 1.7;
     white-space: pre-wrap;
@@ -283,21 +282,22 @@ button.secondary:hover {
 }
 
 .transcript-turn {
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 0.35rem;
 }
 
 .transcript-turn:last-child {
     margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
 }
 
 .transcript-speaker {
+    display: block;
     font-weight: 700;
     color: #2563eb;
-    font-family: inherit;
+    margin-bottom: 0;
+}
+
+.transcript-turn p {
+    margin-top: 0;
 }
 
 /* ── Utility ───────────────────────────────────────── */
