@@ -75,7 +75,10 @@ class Concept(BaseModel):
     domain: str
     title: str
     fields: dict[str, str]
-    status: str = Field(default="pending", description="pending | kept | discarded")
+    status: str = Field(
+        default="pending",
+        description="pending | kept | discarded | jacket_copy",
+    )
     created_at: str
 
 
@@ -474,6 +477,25 @@ async def update_concept_status(
     await db.execute(
         "UPDATE concepts SET status = ? WHERE id = ?",
         (status, str(concept_id)),
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT * FROM concepts WHERE id = ?", (str(concept_id),))
+    row = await cursor.fetchone()
+    if row is None:
+        raise RuntimeError(f"Concept not found after update: {concept_id}")
+    return _row_to_concept(row)
+
+
+async def update_concept_fields(
+    db: aiosqlite.Connection,
+    concept_id: UUID,
+    fields: dict[str, str],
+) -> Concept:
+    """Update a concept's fields_json and return the updated concept."""
+    fields_json = json.dumps(fields)
+    await db.execute(
+        "UPDATE concepts SET fields_json = ? WHERE id = ?",
+        (fields_json, str(concept_id)),
     )
     await db.commit()
     cursor = await db.execute("SELECT * FROM concepts WHERE id = ?", (str(concept_id),))
