@@ -79,6 +79,20 @@ class Settings(BaseSettings):
         description="Temperature for scoring (None lets the model use its default)",
     )
 
+    # Jacket Copy generation
+    jacket_copy_base_url: str | None = Field(
+        default=None,
+        description="Base URL for the jacket copy API (None uses default OpenAI URL)",
+    )
+    jacket_copy_model: str = Field(
+        default="gpt-4o",
+        description="Model for jacket copy generation",
+    )
+    jacket_copy_temperature: float | None = Field(
+        default=0.7,
+        description="Temperature for jacket copy generation (None uses model default)",
+    )
+
     # Domain
     active_domain: str = Field(
         default="sci-fi-concepts",

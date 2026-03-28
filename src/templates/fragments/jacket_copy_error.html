@@ -1,0 +1,10 @@
+<div id="jacket-copy-section">
+    <h3 class="mt-2">Jacket Copy</h3>
+    <p class="text-muted">Generation failed: {{ error_message }}</p>
+    <button hx-post="/ui/review/{{ concept.id }}/jacket-copy"
+            hx-target="#jacket-copy-section"
+            hx-swap="outerHTML"
+            hx-indicator="#jacket-copy-spinner"
+            class="mt-1">Retry</button>
+    <span id="jacket-copy-spinner" class="htmx-indicator text-muted text-sm">Generating...</span>
+</div>

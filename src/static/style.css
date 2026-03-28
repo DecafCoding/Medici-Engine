@@ -219,6 +219,22 @@ button.secondary:hover {
     color: #92400e;
 }
 
+.badge-jacket_copy {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+/* ── HTMX Indicators ─────────────────────────────── */
+
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: inline;
+}
+
 /* ── Score Display ─────────────────────────────────── */
 
 .score {

@@ -27,6 +27,22 @@
     <p>{{ concept.fields[field.name] }}</p>
     {% endif %}
     {% endfor %}
+
+    {% if concept.fields.get("jacket_copy") %}
+    <div id="jacket-copy-section">
+        <h3 class="mt-2">Jacket Copy</h3>
+        <p>{{ concept.fields["jacket_copy"] }}</p>
+    </div>
+    {% else %}
+    <div id="jacket-copy-section">
+        <button hx-post="/ui/review/{{ concept.id }}/jacket-copy"
+                hx-target="#jacket-copy-section"
+                hx-swap="outerHTML"
+                hx-indicator="#jacket-copy-spinner"
+                class="mt-2">Generate Jacket Copy</button>
+        <span id="jacket-copy-spinner" class="htmx-indicator text-muted text-sm">Generating...</span>
+    </div>
+    {% endif %}
 </section>
 
 <section class="card mb-2">

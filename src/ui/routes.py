@@ -27,9 +27,11 @@ from src.db.queries import (
     get_run_by_id,
     get_score_by_concept_id,
     get_situation_performance,
+    update_concept_fields,
     update_concept_status,
 )
 from src.domains.registry import get_active_domain, get_all_domains
+from src.jacket_copy.generator import GenerationError, JacketCopyGenerator
 from src.personas.library import get_all_personas
 
 logger = logging.getLogger(__name__)
@@ -222,6 +224,49 @@ async def review_toggle_status(request: Request, concept_id: UUID):
     updated = await update_concept_status(db, concept_id, status)
     return templates.TemplateResponse(
         "fragments/concept_status.html",
+        {"request": request, "concept": updated},
+    )
+
+
+@router.post("/review/{concept_id}/jacket-copy")
+async def generate_jacket_copy(request: Request, concept_id: UUID):
+    """Generate a jacket copy from a concept's premise and return the HTML fragment."""
+    db = request.app.state.db
+
+    concept = await get_concept_by_id(db, concept_id)
+    if concept is None:
+        return HTMLResponse("Concept not found", status_code=404)
+
+    premise = concept.fields.get("premise", "")
+    if not premise:
+        return templates.TemplateResponse(
+            "fragments/jacket_copy_error.html",
+            {
+                "request": request,
+                "concept": concept,
+                "error_message": "No premise found",
+            },
+        )
+
+    generator = JacketCopyGenerator()
+    try:
+        jacket_copy = await generator.generate(premise)
+    except GenerationError as e:
+        logger.error(
+            "Jacket copy generation failed",
+            extra={"concept_id": str(concept_id), "error": str(e)},
+        )
+        return templates.TemplateResponse(
+            "fragments/jacket_copy_error.html",
+            {"request": request, "concept": concept, "error_message": str(e)},
+        )
+
+    updated_fields = {**concept.fields, "jacket_copy": jacket_copy}
+    await update_concept_fields(db, concept_id, updated_fields)
+    updated = await update_concept_status(db, concept_id, "jacket_copy")
+
+    return templates.TemplateResponse(
+        "fragments/jacket_copy.html",
         {"request": request, "concept": updated},
     )
 
