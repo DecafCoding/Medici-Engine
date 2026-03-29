@@ -31,7 +31,7 @@
     {% if concept.fields.get("jacket_copy") %}
     <div id="jacket-copy-section">
         <h3 class="mt-2">Jacket Copy</h3>
-        <p>{{ concept.fields["jacket_copy"] }}</p>
+        {{ concept.fields["jacket_copy"] | safe }}
     </div>
     {% else %}
     <div id="jacket-copy-section">
