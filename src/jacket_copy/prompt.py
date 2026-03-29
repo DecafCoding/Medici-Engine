@@ -8,9 +8,10 @@ style to produce consistent, high-quality output.
 """
 
 JACKET_COPY_PROMPT = """\
-Using the rough premise below, write a back-cover blurb for a science fiction \
-novel aimed at a broad adult audience. Follow these constraints:
-Structure: Three short paragraphs, no more than 150 words total.
+Write a back-cover blurb for a science fiction novel aimed at a broad adult \
+audience. Follow these constraints:
+Structure: Three short paragraphs, no more than 150 words total. Wrap each \
+paragraph in <p> tags.
 Paragraph one — Establish the world through one character's daily reality. No \
 exposition about how the system works. Show what living under it feels like \
 through a single concrete detail or moment. The reader should sense something \
@@ -26,7 +27,9 @@ Tone: Urgent, grounded, slightly cold. Closer to Kazuo Ishiguro than Michael \
 Crichton. Assume the reader is smart but has zero background in the technical \
 domain.
 Avoid: Rhetorical questions. The word "must." Explaining the world's mechanics. \
-Adjective stacking. Any sentence longer than 20 words."""
+Adjective stacking. Any sentence longer than 20 words.
+Format: Output only the three paragraphs. Each paragraph wrapped in <p></p> \
+tags. No other markup, headers, or text outside the tags."""
 
 PREMISE_PLACEHOLDER = "[Insert Rough Premise]"
 
