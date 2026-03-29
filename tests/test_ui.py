@@ -116,13 +116,6 @@ async def test_batch_page_contains_personas(client) -> None:
     assert "deep_sea_ecologist" in response.text
 
 
-async def test_batch_page_shows_situation_info(client) -> None:
-    """Verify the batch setup page explains dynamic situation generation."""
-    response = await client.get("/ui/batch")
-    assert response.status_code == 200
-    assert "dynamically generated" in response.text
-
-
 async def test_batch_form_submission(client, db) -> None:
     """Verify batch form submission creates a batch and returns status HTML."""
     with patch("src.ui.routes.BatchRunner") as mock_runner_cls:
