@@ -1,6 +1,6 @@
 # Medici Engine
 
-A multi-agent creative collision system that pairs AI agents embodying radically different personas, gives them a shared object to react to, and mines the productive misunderstandings for novel ideas.
+A multi-agent creative collision system that pairs AI agents embodying radically different personas, gives them a shared situation to react to, and mines the productive misunderstandings for novel ideas.
 
 A synthesizer agent extracts structured output from the conversation, a scoring model rates it with reasoning, and a human makes the final keep/discard call.
 
@@ -14,7 +14,7 @@ All the code in this repo was created by Claude Code. I have been a C# developer
 
 1. **Persona Assignment** — Two agents are each given a deeply specific persona: a worldview, vocabulary, core obsessions, and characteristic way of seeing. The further apart conceptually, the higher the variance.
 
-2. **Shared Object** — Both agents react to a concrete shared object (a problem, scenario, or question) through their own domain lens. The collision happens in the interpretation gap.
+2. **Situation** — Both agents are given a generated situation: a concrete scenario grounded in a specific time, place, and tension, drawn from one persona's world. Each agent interprets it through their own domain lens. The collision happens in the interpretation gap.
 
 3. **Conversation** — The agents converse for a fixed number of turns. The key artifact isn't agreement — it's productive friction, where two personas fundamentally talk past each other in interesting ways.
 
@@ -50,12 +50,6 @@ All the code in this repo was created by Claude Code. I have been a C# developer
 - **Ruff** — linting and formatting
 - **uv** — package management
 
-## Infrastructure
-
-- **4x NVIDIA 5060Ti** (16GB VRAM each, 64GB total) for local conversation model inference via vLLM
-- **Starting model:** MythoMax-L2-13B — fits on a single GPU, enabling up to 4 parallel conversations
-- **Graduation path:** 13B (4x parallel) → ~27B (2x parallel) → 103B (serial) as quality demands increase
-
 ## Expected Yield
 
 The system is honest about how creativity works:
@@ -81,7 +75,7 @@ Adding a new domain is a configuration change: define the extraction fields, sco
 The system tracks which persona pairings and shared objects produce the best results. An insights dashboard (`/ui/insights`) surfaces:
 
 - **Pairing performance** — average scores, kept rates, and run counts per persona pair
-- **Shared object performance** — which seeds generate the most generative collisions
+- **Situation performance** — which situations generate the most generative collisions
 
 Batch runs can optionally use **performance-informed selection**, which weights persona pairing toward historically higher-scoring combinations while maintaining an exploration rate (default 20%) to keep discovering new pairings.
 
@@ -93,7 +87,7 @@ Batch runs can optionally use **performance-informed selection**, which weights 
 - **uv** — [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/)
 - **Git** — [git-scm.com](https://git-scm.com/)
 - **OpenAI API key** — required for synthesis and scoring
-- **vLLM server** — required for local conversation inference (see [Infrastructure](#infrastructure))
+- **vLLM server** — required for local conversation inference
 
 ### 1. Clone the repository
 
