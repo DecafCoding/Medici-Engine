@@ -31,7 +31,7 @@ from src.db.queries import (
     update_concept_status,
 )
 from src.domains.registry import get_active_domain, get_all_domains
-from src.jacket_copy.generator import GenerationError, JacketCopyGenerator
+from src.jacket_copy import GenerationError, get_jacket_copy_generator
 from src.personas.library import get_all_personas
 
 logger = logging.getLogger(__name__)
@@ -248,7 +248,7 @@ async def generate_jacket_copy(request: Request, concept_id: UUID):
             },
         )
 
-    generator = JacketCopyGenerator()
+    generator = get_jacket_copy_generator()
     try:
         jacket_copy = await generator.generate(premise)
     except GenerationError as e:

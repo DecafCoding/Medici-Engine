@@ -92,6 +92,14 @@ class Settings(BaseSettings):
         default=0.7,
         description="Temperature for jacket copy generation (None uses model default)",
     )
+    jacket_copy_provider: str = Field(
+        default="openai",
+        description="Jacket copy backend: 'openai' or 'claude-cli'",
+    )
+    claude_cli_model: str = Field(
+        default="sonnet",
+        description="Model flag passed to the Claude CLI (e.g. 'sonnet', 'opus', 'haiku')",
+    )
 
     # Domain
     active_domain: str = Field(
