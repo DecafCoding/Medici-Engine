@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     )
     claude_cli_model: str = Field(
         default="sonnet",
-        description="Model flag passed to the Claude CLI (e.g. 'sonnet', 'opus', 'haiku')",
+        description="Model flag passed to the Claude CLI (sonnet | opus | haiku)",
     )
 
     # Domain
