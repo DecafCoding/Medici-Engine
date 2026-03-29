@@ -74,14 +74,12 @@
     {% endif %}
 </section>
 
-<section class="transcript-drawer">
-    <details>
-        <summary class="transcript-toggle">View Transcript</summary>
-        <div hx-get="/ui/review/{{ concept.id }}/transcript"
-             hx-trigger="toggle once from:closest details"
-             hx-swap="innerHTML">
-            <p class="text-muted" style="padding: 1rem;">Loading transcript...</p>
-        </div>
-    </details>
+<section class="card mb-2">
+    <h3>Transcript</h3>
+    <div hx-get="/ui/review/{{ concept.id }}/transcript"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <p class="text-muted">Loading transcript...</p>
+    </div>
 </section>
 {% endblock %}
