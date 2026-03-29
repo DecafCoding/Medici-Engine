@@ -5,46 +5,35 @@
 {% block heading %}Batch Setup{% endblock %}
 
 {% block content %}
+<p class="text-muted">Configure and launch a batch of conversations. Each run pairs two personas and generates a situation from Persona A's perspective as the shared context for the conversation.</p>
+
 <form hx-post="/ui/batch" hx-target="#batch-result" hx-swap="innerHTML">
-    <fieldset>
-        <legend>Persona Selection</legend>
+    <label for="persona_a">Persona A</label>
+    <select name="persona_a" id="persona_a">
+        <option value="">Random</option>
+        {% for persona in personas %}
+        <option value="{{ persona.name }}">{{ persona.name }} — {{ persona.title }}</option>
+        {% endfor %}
+    </select>
 
-        <label for="persona_a">Persona A</label>
-        <select name="persona_a" id="persona_a">
-            <option value="">Random</option>
-            {% for persona in personas %}
-            <option value="{{ persona.name }}">{{ persona.name }} — {{ persona.title }}</option>
-            {% endfor %}
-        </select>
+    <label for="persona_b">Persona B</label>
+    <select name="persona_b" id="persona_b">
+        <option value="">Random</option>
+        {% for persona in personas %}
+        <option value="{{ persona.name }}">{{ persona.name }} — {{ persona.title }}</option>
+        {% endfor %}
+    </select>
 
-        <label for="persona_b">Persona B</label>
-        <select name="persona_b" id="persona_b">
-            <option value="">Random</option>
-            {% for persona in personas %}
-            <option value="{{ persona.name }}">{{ persona.name }} — {{ persona.title }}</option>
-            {% endfor %}
-        </select>
-    </fieldset>
+    <label for="turns_per_agent">Turns per Agent</label>
+    <input type="number" name="turns_per_agent" id="turns_per_agent" value="5" min="1" max="20">
 
-    <fieldset>
-        <legend>Situation</legend>
-        <p class="text-muted">A situation will be dynamically generated from Persona A's perspective for each conversation.</p>
-    </fieldset>
+    <label for="num_conversations">Number of Conversations</label>
+    <input type="number" name="num_conversations" id="num_conversations" value="1" min="1" max="50">
 
-    <fieldset>
-        <legend>Run Configuration</legend>
-
-        <label for="turns_per_agent">Turns per Agent</label>
-        <input type="number" name="turns_per_agent" id="turns_per_agent" value="5" min="1" max="20">
-
-        <label for="num_conversations">Number of Conversations</label>
-        <input type="number" name="num_conversations" id="num_conversations" value="1" min="1" max="50">
-
-        <label>
-            <input type="checkbox" name="use_informed_selection" id="use_informed_selection" value="1">
-            Use performance-informed persona selection
-        </label>
-    </fieldset>
+    <label>
+        <input type="checkbox" name="use_informed_selection" id="use_informed_selection" value="1">
+        Use performance-informed persona selection
+    </label>
 
     <button type="submit">Launch Batch</button>
 </form>
