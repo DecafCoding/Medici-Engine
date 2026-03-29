@@ -400,3 +400,9 @@ button.secondary:hover {
 .filter-controls select {
     margin-bottom: 0;
 }
+
+/* ── Jacket Copy ───────────────────────────────────── */
+
+#jacket-copy-section p {
+    padding-bottom: 15px;
+}
