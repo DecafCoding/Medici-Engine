@@ -1,6 +1,6 @@
 {% if transcript %}
 {% for turn in transcript %}
-<h3>[Turn {{ turn.turn_number }}] {{ turn.persona_name }}:</h3>
+<h3 class="mt-2">[Turn {{ turn.turn_number }}] {{ turn.persona_name }}:</h3>
 <p>{{ turn.content }}</p>
 {% endfor %}
 {% else %}
